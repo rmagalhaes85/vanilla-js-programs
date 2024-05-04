@@ -1,0 +1,855 @@
+<html>
+  <head>
+    <title>Typing Speed Meter</title>
+    <style>
+
+      /* Configuration */
+
+      #configurationPanel {
+          border: 0.5em ridge #c8c8c8;
+          padding: 0.75em;
+      }
+
+      #configurationPanel div {
+          margin-bottom: 1em;
+      }
+
+      #configurationPanel span {
+          display: block;
+      }
+
+      /* Game Panel */
+
+      #gamePanel {
+          border: 0.5em ridge #c8c8c8;
+          padding: 1em;
+      }
+
+      /* Text Viewer */
+
+      #textView {
+          border: 1px solid #c8c8c8;
+          overflow: clip;
+          padding: 0.2em;
+      }
+
+      #textView .word {
+          margin-right: 5px;
+          padding: 1px;
+      }
+
+      #textView .word.first {
+          border: 2px solid red;
+          font-weight: bold;
+      }
+
+      /* Full typed text */
+      
+      #fullTypedText {
+          background-color: #ffffc8;
+          display: flex;
+          flex-flow: wrap;
+      }
+
+      #fullTypedText span.typed-word {
+          color: blue;
+          margin-right: 0.4em;
+      }
+      
+      #fullTypedText span.not-accepted {
+          color: red;
+          font-weight: bold;
+      }
+      
+      #fullTypedText span.inaccurate {
+          color: red;
+      }
+
+    </style>
+  </head>
+  <body>
+    <h1>Typing Speed Meter</h1>
+    <div id="configurationPanel">
+      <div>
+        <span>Mode:</span>
+        <select id="modeSelect">
+          <option value="followtext">Follow text</option>
+          <option value="freetyping">Free typing</option>
+        </select>
+      </div>
+      <div>
+        <span>Text:</span>
+        <select id="textSelect">
+          <!-- <option value="loremipsum1">Lorem Ipsum 1</option> -->
+        </select>
+      </div>
+      <div>
+        <span>Minimum accuracy:</span>
+        <select id="minimumAccuracySelect">
+          <option value="100">Full-match only</option>
+          <option value="85">85%</option>
+        </select>
+      </div>
+      <div>
+        <span><label><input type="checkbox" id="chkCaseSensitive" /> Case-sensitive</label></span>
+      </div>
+      <div>
+        <span><label><input type="checkbox" id="chkPunctuation" /> Show punctuation</label></span>
+      </div>
+      <div>
+        <input type="button" id="gameStartButton" value="START! (CTRL+1)" />
+      </div>
+    </div>
+    <div id="gamePanel">
+      <div id="textPanel">
+        <span>Text:</span>
+        <div id="textView"><span>&nbsp;</span></div>
+      </div>
+      <hr />
+      <div id="typingPanel">
+        <div><span>Type here:</span></div>
+        <input type="text" id="typedText" />
+        <input type="button" id="finishButton" value="FINISH (CTRL+2)" />
+      </div>
+      <hr />
+      <div id="resultsPanel">
+        <div><span>Results:</span></div>
+        <div><span>Speed (WPM):</span><span id="wpmResult">&nbsp;</span></div>
+        <div><span>Typed text:</span></div>
+        <div><div id="fullTypedText">&nbsp;</div></div>
+      </div>
+    </div>
+    <script type="text/anything">
+
+      class ConfigurationController {
+
+        eventHandlers = [];
+
+        constructor(
+          modeSelect, textSelect, minimumAccuracySelect, chkCaseSensitive, chkPunctuation,
+          gameStartButton, textList,
+        ) {
+          this.modeSelect = modeSelect;
+          this.textSelect = textSelect;
+          this.minimumAccuracySelect = minimumAccuracySelect;
+          this.chkCaseSensitive = chkCaseSensitive;
+          this.chkPunctuation = chkPunctuation;
+          this.gameStartButton = gameStartButton;
+          this.textList = textList;
+          //gameStartButton.addEventListener('click', (e) => {this.#notifyConfigurationListeners();});
+          gameStartButton.addEventListener('click', window.startGame);
+          this.loadAvailableTexts()
+        }
+
+        // setConfigurationReady(configurationReady) {
+        //   this.configurationReady = configurationReady;
+        // }
+
+        /*addEventListener(eventName, eventHandler) {
+         if (eventName !== 'configurationReady') return;
+         this.eventHandlers.push(eventHandler);
+         }*/
+
+        // FIXME: emacs' autoindent seems to have trouble with methods beginning
+        // with a '#'
+        // #notifyConfigurationListeners() {
+        //   for (let fn of this.eventHandlers) {
+        //     fn({config: {
+        //       textKey: this.textSelect.value,
+        //       minimumAccuracy: this.minimumAccuracySelect.value / 100,
+        //       caseSensitive: this.chkCaseSensitive.checked,
+        //       requirePunctuation: this.chkPunctuation.checked,
+        //     }});
+        //   }
+        // }
+        getConfig() {
+          return {
+            textKey: this.textSelect.value,
+            minimumAccuracy: this.minimumAccuracySelect.value / 100,
+            caseSensitive: this.chkCaseSensitive.checked,
+            requirePunctuation: this.chkPunctuation.checked,
+          };
+        }
+
+        // #modeSelectChange(e) {
+        //   console.log('ConfigurationController#modeSelectChange');
+        // }
+
+        // #textSelectChange(e) {
+        //   console.log('ConfigurationController#textSelectChange');
+        // }
+
+        // #minimumAccuracySelectChange(e) {
+        //   console.log('ConfigurationController#minimumAccuracySelectChange');
+        // }
+
+        loadAvailableTexts() {
+          this.textList.forEach(tn => {
+            const op = document.createElement('option');
+            op.value = tn.key;
+            op.innerHTML = tn.name;
+            textSelect.appendChild(op);
+          });
+        }
+      }
+
+      class GameController {
+
+        activeWord = '';
+        textView;
+        typedText;
+        fullTypedText;
+        wpmResult;
+        textService;
+        wpmCounter;
+        config;
+        wordBarController;
+        comparisonFn;
+
+        constructor(textView, typedText, fullTypedText, wpmResult, textService, wpmCounter) {
+          this.textView = textView;
+          this.typedText = typedText;
+          this.fullTypedText = fullTypedText;
+          this.wpmResult = wpmResult;
+          this.textService = textService;
+          const this_validateInput = this.validateInput.bind(this);
+          const this_consumeActiveWord = this.consumeActiveWord.bind(this);
+          const this_displayTypedWord = this.displayTypedWord.bind(this);
+          typedText.addEventListener('keydown', function(e) {
+            if (e.keyCode !== 32 && e.keyCode !== 13) return;
+            e.preventDefault();
+            const input = typedText.value;
+            const validation = this_validateInput(input);
+            // console.log({validation});
+            typedText.value = '';
+            wpmResult.innerHTML = wpmCounter.averageWordsPerMinute;
+            this_displayTypedWord(input, validation);
+            if (validation.accepted) {
+              wpmCounter.recordWordTime((new Date()).getTime());
+              this_consumeActiveWord();
+            }
+            // TODO implement reloadable timer to reset the wpm counter
+          })
+        }
+
+        consumeActiveWord() {
+          this.textView.removeChild(this.textView.firstChild);
+          if (!this.textView.firstChild) {
+            this.endGame();
+          } else {
+            this.textView.firstChild.classList.add('first');
+            this.activeWord = this.textView.firstChild.innerHTML;
+          }
+        }
+        
+        endGame() {
+          console.log('GameController#endGame');
+        }
+
+        displayTypedWord(word, validation) {
+          // displays typed word in the appropriate area and format it according to
+          // the validation status -- bold-red in case it hasnt been accepted, just red
+          // in case it's been accepted although not a full-match
+          const newWordSpan = document.createElement('span');
+          newWordSpan.classList.add('typed-word');
+          newWordSpan.innerHTML = word;
+          if (!validation.accepted) {
+            newWordSpan.classList.add('not-accepted');
+          }
+          if (validation.accuracy < 1) {
+            newWordSpan.classList.add('inaccurate');
+          }
+          this.fullTypedText.appendChild(newWordSpan);
+        }
+
+        disableGame() {
+          console.log('GameController#disableGame');
+        }
+
+        startGame(config) {
+          this.config = config;
+          this.loadTextByKey(config.textKey);
+          this.typedText.focus();
+          this.startGameCountdown();
+        }
+
+        loadTextByKey(textKey) {
+          const text = this.textService.getTextByKey(textKey, !this.config.requirePunctuation);
+          if (!text) throw new Error(`Text of key "${textKey}" not found`);
+          // load the text bar with those multiple <span>s
+          textView.innerHTML = '';
+          const words = text.split(' ');
+          if (words.length === 0) return;
+          const firstWordEl = document.createElement('span');
+          firstWordEl.setAttribute('class', 'word first');
+          firstWordEl.innerHTML = words[0];
+          this.activeWord = words[0];
+          textView.appendChild(firstWordEl);
+          for (let i = 1; i < words.length; ++i) {
+            const el = document.createElement('span');
+            el.setAttribute('class', 'word');
+            el.innerHTML = words[i];
+            textView.appendChild(el);
+          }
+        }
+
+        validateInput(input) {
+          // se a config manda 100% de match, returna true se input === palavra ativa
+          // se config manda menos que 100%, calcula o percentual de match baseado na distancia levenshtein
+          // independente da configuracao, emite uma estatistica de grau de acerto (isso faz parte dos resultados)
+          function levenshtein(a, b) {
+            if (a === '') return b.length;
+            if (b === '') return a.length;
+            if (a[0] === b[0]) {
+              return levenshtein(a.substring(1), b.substring(1));
+            } else {
+              return 1 + Math.min(
+                levenshtein(a.substring(1), b),
+                levenshtein(a, b.substring(1)),
+                levenshtein(a.substring(1), b.substring(1)),
+              );
+            }
+          }
+
+          const a = this.config.caseSensitive ? this.activeWord : this.activeWord.toLowerCase();
+          const b = this.config.caseSensitive ? input : input.toLowerCase();
+          const lev = levenshtein(a, b);
+          const activeWordLen = this.activeWord.length;
+          const similarity = (lev > activeWordLen) ? 0 : 1 - lev / activeWordLen;
+          const accepted = similarity >= this.config.minimumAccuracy;
+          // console.log({lev, activeWordLen, similarity, accepted, minimumAccuracy: this.config.minimumAccuracy});
+          return {accepted, accuracy: similarity};
+        }
+
+        startGameCountdown() {
+        }
+
+      }
+
+      class TextService {
+
+        TEXTS = [
+          {
+            key: 'lipsum1',
+            name: 'Lorem Ipsum 1',
+            text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit,' +
+              'sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad' +
+              'minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea' +
+              'commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit' +
+              'esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat' +
+              'non proident, sunt in culpa qui officia deserunt mollit anim id est laborum'
+          },
+          {
+            key: 'minilipsum1',
+            name: 'Mini Lorem Ipsum 1',
+            text: 'Lorem ipsum dolor sit amet',
+          },
+          {
+            key: 'planetsmnem',
+            name: 'Planetas - Mnemonico',
+            text: 'Meu velho tio mandou junior saborear umas nove pizzas',
+          },
+          {
+            key: 'frankbick',
+            name: 'Frank Bickerton',
+            text: 'Frank Bickerton spent most of the 1912 winter working to convert it to a sledge, fashioning brakes from a pair of geological drills and a steering system from the plane\'s landing gear. It was first tested on the 15th of November, 1912 and subsequently assisted in laying',
+          },
+
+
+        ];
+
+        TEXT_NAMES = this.TEXTS.map(t => ({key: t.key, name: t.name}));
+
+        getTextNames() {
+          return this.TEXT_NAMES;
+        }
+
+        getTexts() {
+          return this.TEXTS;
+        }
+
+        getTextByKey(textKey, removePunctuation) {
+          const found = this.TEXTS.find(t => t.key === textKey);
+          if (!found) return;
+          if (!removePunctuation) {
+            return found.text;
+          } else {
+            const re = /[\.,;:?!]/g;
+            return found.text.replace(re, '');
+          }
+        }
+
+      }
+
+      class WpmCounter {
+        IDLE_TIME_MS = 2000;
+        eventListeners = [];
+        wpmTimerCancelHandler;
+
+        constructor() {
+          const this_clearCounters = this.clearCounters.bind(this);
+          this.clearCounters();
+          this.wpmTimerCancelHandler = setTimeout(this_clearCounters, this.IDLE_TIME_MS);
+        }
+
+        recordWordTime(wordTime) {
+          // console.log('recordWordTime', wordTime);
+          clearTimeout(this.wpmTimerCancelHandler);
+          if (!this.lastTypedTime) {
+            //this.averageTimeDiff = wordTime - this.lastTypedTime;
+            this.averageTimeDiff = 0;
+            this.lastTypedTime = wordTime;
+          } else {
+            this.averageTimeDiff += (wordTime - this.lastTypedTime);
+            this.averageTimeDiff /= 2;
+            if (this.averageTimeDiff > 0) {
+              this.averageWordsPerMinute = Math.round(60000 / this.averageTimeDiff);
+            }
+            //console.log('recordWordTime', {averageWordsPerMinute: this.averageWordsPerMinute});
+            console.log('recordWordTime', {
+              wordTime,
+              lastTypedTime: this.lastTypedTime,
+              averageTimeDiff: this.averageTimeDiff,
+            });
+            this.lastTypedTime = wordTime;
+            // TODO there may be a more elegant way to implement this...
+            const this_clearCounters = this.clearCounters.bind(this);
+            this.wpmTimerCancelHandler = setTimeout(this_clearCounters, this.IDLE_TIME_MS);
+          }
+        }
+
+        clearCounters() {
+          console.log('clearCounters');
+          this.lastTypedTime = 0;
+          this.averageTimeDiff = 0;
+          this.averageWordsPerMinute = 0;
+        }
+
+      }
+
+      class WordBarController {
+
+        config;
+
+        constructor(textView) {
+        }
+
+        presentText(text) {
+        }
+
+        putWord(word) {
+          if (!config) throw new Error('Configuration is unset');
+          // accepts or not, and returns an accuracy %
+          // example
+          return {accepted: false, accuracy: 0.34};
+        }
+      }
+
+      class StatusCalculator {
+
+        initialTime;
+        arrAccuracies;
+        wordCount;
+
+        constructor(time) {
+          this.reset(time);
+        }
+
+        reset(time) {
+          this.initialTime = time!! time ? new Date();
+          this.arrAccuracies = [];
+          this.wordCount = 0;
+        }
+
+        recordWord(accuracy) {
+          this.wordCount++;
+          this.arrAccuracies.push(accuracy);
+        }
+
+        getReport(time) {
+          return {
+            avgWpmSpeed: 1.0,
+            avgAccuracy: 0.85,
+          };
+        }
+
+      }
+
+      const modeSelect = document.getElementById('modeSelect');
+      const textSelect = document.getElementById('textSelect');
+      const minimumAccuracySelect = document.getElementById('minimumAccuracySelect');
+      const chkCaseSensitive = document.getElementById('chkCaseSensitive');
+      const chkPunctuation = document.getElementById('chkPunctuation');
+      const gameStartButton = document.getElementById('gameStartButton');
+      const textView = document.getElementById('textView');
+      const typedText = document.getElementById('typedText');
+      const fullTypedText = document.getElementById('fullTypedText');
+      const wpmResult = document.getElementById('wpmResult');
+
+      const textService = new TextService();
+      const wpmCounter = new WpmCounter();
+      const configController = new ConfigurationController(
+        modeSelect, textSelect, minimumAccuracySelect,
+        chkCaseSensitive, chkPunctuation, gameStartButton,
+        textService.getTextNames(),
+      );
+      const gameController = new GameController(
+        textView, typedText,
+        fullTypedText, wpmResult, textService, wpmCounter
+      );
+      //configController.addEventListener('configurationReady', e => {gameController.startGame(e.config);});
+
+      function startGame() {
+        gameController.startGame(configController.getConfig());
+      }
+
+      /// configure keyboard shortcuts
+      window.addEventListener('keydown', function(e) {
+        if (e.ctrlKey) {
+          switch (e.key) {
+          case '1':
+            startGame();
+            console.log('CTRL+1');
+            break;
+          case '2':
+            gameController.endGame();
+            console.log('CTRL+2');
+            break;
+          }
+        }
+      });
+
+    </script>
+
+
+    <script language="javascript">
+      class ConfigurationController {
+
+        eventHandlers = [];
+
+        constructor(
+          modeSelect, textSelect, minimumAccuracySelect, chkCaseSensitive, chkPunctuation,
+          gameStartButton, textList,
+        ) {
+          this.modeSelect = modeSelect;
+          this.textSelect = textSelect;
+          this.minimumAccuracySelect = minimumAccuracySelect;
+          this.chkCaseSensitive = chkCaseSensitive;
+          this.chkPunctuation = chkPunctuation;
+          this.gameStartButton = gameStartButton;
+          this.textList = textList;
+          const this_notifyListeners = this.notifyListeners.bind(this);
+          const this_getConfig = this.getConfig.bind(this);
+          //gameStartButton.addEventListener('click', (e) => {this.#notifyConfigurationListeners();});
+          //gameStartButton.addEventListener('click', window.startGame);
+          gameStartButton.addEventListener('click', (e) => {
+            this_notifyListeners('configurationready', {config: this_getConfig()})
+          });
+          this.loadAvailableTexts()
+        }
+
+        // setConfigurationReady(configurationReady) {
+        //   this.configurationReady = configurationReady;
+        // }
+
+        addEventListener(eventName, eventHandler) {
+          if (eventName !== 'configurationready') return;
+          this.eventHandlers.push({eventName, eventHandler});
+        }
+
+        notifyListeners(eventName, e) {
+          this.eventHandlers
+            .filter(eh => eh.eventName === eventName)
+            .forEach(eh => eh.eventHandler(e));
+        }
+
+        // FIXME: emacs' autoindent seems to have trouble with methods beginning
+        // with a '#'
+        // #notifyConfigurationListeners() {
+        //   for (let fn of this.eventHandlers) {
+        //     fn({config: {
+        //       textKey: this.textSelect.value,
+        //       minimumAccuracy: this.minimumAccuracySelect.value / 100,
+        //       caseSensitive: this.chkCaseSensitive.checked,
+        //       requirePunctuation: this.chkPunctuation.checked,
+        //     }});
+        //   }
+        // }
+        getConfig() {
+          return {
+            textKey: this.textSelect.value,
+            minimumAccuracy: this.minimumAccuracySelect.value / 100,
+            caseSensitive: this.chkCaseSensitive.checked,
+            requirePunctuation: this.chkPunctuation.checked,
+          };
+        }
+
+        // #modeSelectChange(e) {
+        //   console.log('ConfigurationController#modeSelectChange');
+        // }
+
+        // #textSelectChange(e) {
+        //   console.log('ConfigurationController#textSelectChange');
+        // }
+
+        // #minimumAccuracySelectChange(e) {
+        //   console.log('ConfigurationController#minimumAccuracySelectChange');
+        // }
+
+        loadAvailableTexts() {
+          this.textList.forEach(tn => {
+            const op = document.createElement('option');
+            op.value = tn.key;
+            op.innerHTML = tn.name;
+            textSelect.appendChild(op);
+          });
+        }
+      }
+
+      class GameController {
+
+        activeWord = '';
+        textView;
+        typedText;
+        fullTypedText;
+        wpmResult;
+        textService;
+        wpmCounter;
+        config;
+        wordBarController;
+        comparisonFn;
+
+        constructor(textView, typedText, fullTypedText, wpmResult, textService, wpmCounter) {
+          this.textView = textView;
+          this.typedText = typedText;
+          this.fullTypedText = fullTypedText;
+          this.wpmResult = wpmResult;
+          this.textService = textService;
+          const this_validateInput = this.validateInput.bind(this);
+          const this_consumeActiveWord = this.consumeActiveWord.bind(this);
+          const this_displayTypedWord = this.displayTypedWord.bind(this);
+          typedText.addEventListener('keydown', function(e) {
+            if (e.keyCode !== 32 && e.keyCode !== 13) return;
+            e.preventDefault();
+            const input = typedText.value;
+            const validation = this_validateInput(input);
+            // console.log({validation});
+            typedText.value = '';
+            wpmResult.innerHTML = wpmCounter.averageWordsPerMinute;
+            this_displayTypedWord(input, validation);
+            if (validation.accepted) {
+              wpmCounter.recordWordTime((new Date()).getTime());
+              this_consumeActiveWord();
+            }
+            // TODO implement reloadable timer to reset the wpm counter
+          })
+        }
+
+        consumeActiveWord() {
+          this.textView.removeChild(this.textView.firstChild);
+          if (!this.textView.firstChild) {
+            this.endGame();
+          } else {
+            this.textView.firstChild.classList.add('first');
+            this.activeWord = this.textView.firstChild.innerHTML;
+          }
+        }
+        
+        endGame() {
+          console.log('GameController#endGame');
+        }
+
+        displayTypedWord(word, validation) {
+          // displays typed word in the appropriate area and format it according to
+          // the validation status -- bold-red in case it hasnt been accepted, just red
+          // in case it's been accepted although not a full-match
+          const newWordSpan = document.createElement('span');
+          newWordSpan.classList.add('typed-word');
+          newWordSpan.innerHTML = word;
+          if (!validation.accepted) {
+            newWordSpan.classList.add('not-accepted');
+          }
+          if (validation.accuracy < 1) {
+            newWordSpan.classList.add('inaccurate');
+          }
+          this.fullTypedText.appendChild(newWordSpan);
+        }
+
+      }
+
+      class TextBarController {
+
+        textView;
+
+        constructor(textView) {
+          this.textView = textView;
+        }
+
+        addEventListener(eventName, eventHandler) {
+        }
+
+        displayText(text) {
+          this.textView.innerHTML = '';
+          const words = text.split(' ');
+          if (words.length === 0) return;
+          const firstWordEl = document.createElement('span');
+          firstWordEl.setAttribute('class', 'word first');
+          firstWordEl.innerHTML = words[0];
+          this.activeWord = words[0];
+          this.textView.appendChild(firstWordEl);
+          for (let i = 1; i < words.length; ++i) {
+            const el = document.createElement('span');
+            el.setAttribute('class', 'word');
+            el.innerHTML = words[i];
+            this.textView.appendChild(el);
+          }
+        }
+
+      }
+
+      class InputController {
+
+        enable() {
+        }
+
+        addEventListener(eventName, eventHandler) {
+        }
+
+      }
+
+      class TextService {
+
+        TEXTS = [
+          {
+            key: 'lipsum1',
+            name: 'Lorem Ipsum 1',
+            text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit,' +
+              'sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad' +
+              'minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea' +
+              'commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit' +
+              'esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat' +
+              'non proident, sunt in culpa qui officia deserunt mollit anim id est laborum'
+          },
+          {
+            key: 'minilipsum1',
+            name: 'Mini Lorem Ipsum 1',
+            text: 'Lorem ipsum dolor sit amet',
+          },
+          {
+            key: 'planetsmnem',
+            name: 'Planetas - Mnemonico',
+            text: 'Meu velho tio mandou junior saborear umas nove pizzas',
+          },
+          {
+            key: 'frankbick',
+            name: 'Frank Bickerton',
+            text: 'Frank Bickerton spent most of the 1912 winter working to convert it to a sledge, fashioning brakes from a pair of geological drills and a steering system from the plane\'s landing gear. It was first tested on the 15th of November, 1912 and subsequently assisted in laying',
+          },
+
+
+        ];
+
+        TEXT_NAMES = this.TEXTS.map(t => ({key: t.key, name: t.name}));
+
+        getTextNames() {
+          return this.TEXT_NAMES;
+        }
+
+        getTexts() {
+          return this.TEXTS;
+        }
+
+        getTextByKey(textKey, removePunctuation) {
+          const found = this.TEXTS.find(t => t.key === textKey);
+          if (!found) return;
+          if (!removePunctuation) {
+            return found.text;
+          } else {
+            const re = /[\.,;:?!]/g;
+            return found.text.replace(re, '');
+          }
+        }
+
+      }
+
+      class ResultsPanelController {
+      }
+
+      class TypedTextController {
+      }
+
+      class StatusReporter {
+      }
+
+
+      function byId(id) {
+        return document.getElementById(id);
+      }
+
+      const modeSelect = byId('modeSelect');
+      const textSelect = byId('textSelect');
+      const minimumAccuracySelect = byId('minimumAccuracySelect');
+      const chkCaseSensitive = byId('chkCaseSensitive');
+      const chkPunctuation = byId('chkPunctuation');
+      const gameStartButton = byId('gameStartButton');
+      const textView = byId('textView');
+
+      const textService = new TextService();
+
+      const configurationController = new ConfigurationController(
+        modeSelect, textSelect, minimumAccuracySelect,
+        chkCaseSensitive, chkPunctuation, gameStartButton,
+        textService.getTextNames(),
+      );
+      const inputController = new InputController();
+      const textBarController = new TextBarController(textView);
+
+      // wirings
+
+      // when the configuration is ready
+      configurationController.addEventListener(
+        'configurationready',
+        (e) => {
+          const config = e.config;
+          const textContent = textService.getTextByKey(config.textKey);
+          textBarController.displayText(textContent);
+          inputController.enable();
+        }
+      );
+
+      // when a word is typed and confirmed using RET or SPACE
+      inputController.addEventListener(
+        'inputavailable',
+        (e) => {
+          const input = e.input;
+          const acceptance = textBarController.admitInput(input);
+          typedTextController.displayInput(acceptance, input);            
+        }
+      );
+
+      // when the button is pressed
+      // COULD USE THE SAME EVENT HANDLER AS 'outofwords' EVENT
+      inputController.addEventListener(
+        'endgamerequested',
+        (e) => {},
+      );
+
+      // when the game ends b/c there are no further words
+      // COULD USE THE SAME EVENT HANDLER AS 'endgamerequested' EVENT
+      textBarController.addEventListener(
+        'outofwords',
+        (e) => {},
+      );
+
+      textBarController.addEventListener(
+        'results',
+        (e) => {
+          // textBarController periodically makes results available. Results contain
+          // average words-per-minute speed and average accuracy
+          resultsPaneController.displayResults(e.results);
+        },
+      );
+      
+    </script>
+  </body>
+</html>
