@@ -545,10 +545,6 @@
           this.loadAvailableTexts()
         }
 
-        // setConfigurationReady(configurationReady) {
-        //   this.configurationReady = configurationReady;
-        // }
-
         addEventListener(eventName, eventHandler) {
           if (eventName !== 'configurationready') return;
           this.eventHandlers.push({eventName, eventHandler});
@@ -560,18 +556,6 @@
             .forEach(eh => eh.eventHandler(e));
         }
 
-        // FIXME: emacs' autoindent seems to have trouble with methods beginning
-        // with a '#'
-        // #notifyConfigurationListeners() {
-        //   for (let fn of this.eventHandlers) {
-        //     fn({config: {
-        //       textKey: this.textSelect.value,
-        //       minimumAccuracy: this.minimumAccuracySelect.value / 100,
-        //       caseSensitive: this.chkCaseSensitive.checked,
-        //       requirePunctuation: this.chkPunctuation.checked,
-        //     }});
-        //   }
-        // }
         getConfig() {
           return {
             textKey: this.textSelect.value,
@@ -580,18 +564,6 @@
             requirePunctuation: this.chkPunctuation.checked,
           };
         }
-
-        // #modeSelectChange(e) {
-        //   console.log('ConfigurationController#modeSelectChange');
-        // }
-
-        // #textSelectChange(e) {
-        //   console.log('ConfigurationController#textSelectChange');
-        // }
-
-        // #minimumAccuracySelectChange(e) {
-        //   console.log('ConfigurationController#minimumAccuracySelectChange');
-        // }
 
         loadAvailableTexts() {
           this.textList.forEach(tn => {
@@ -603,18 +575,27 @@
         }
       }
 
-      class TextBarController {
+      class TextBarController extends EventDriver {
 
+        activeWord;
+        config;
         textView;
+        statusReporter;
 
-        constructor(textView) {
+        constructor(textView, statusReporter) {
           this.textView = textView;
+          this.statusReporter = statusReporter;
         }
 
-        addEventListener(eventName, eventHandler) {
+        start() {
+          this.statusReporter.start();
+          // TODO start timer for periodical result reports
         }
 
-        displayText(text) {
+        displayText(text, config) {
+          if (!text) throw new Error('Text is undefined');
+          if (!config) throw new Error('Config is undefined');
+          this.config = config;
           this.textView.innerHTML = '';
           const words = text.split(' ');
           if (words.length === 0) return;
@@ -629,6 +610,52 @@
             el.innerHTML = words[i];
             this.textView.appendChild(el);
           }
+        }
+
+        validateInput(input) {
+          // se a config manda 100% de match, returna true se input === palavra ativa
+          // se config manda menos que 100%, calcula o percentual de match baseado na distancia levenshtein
+          // independente da configuracao, emite uma estatistica de grau de acerto (isso faz parte dos resultados)
+          function levenshtein(a, b) {
+            if (a === '') return b.length;
+            if (b === '') return a.length;
+            if (a[0] === b[0]) {
+              return levenshtein(a.substring(1), b.substring(1));
+            } else {
+              return 1 + Math.min(
+                levenshtein(a.substring(1), b),
+                levenshtein(a, b.substring(1)),
+                levenshtein(a.substring(1), b.substring(1)),
+              );
+            }
+          }
+
+          const a = this.config.caseSensitive ? this.activeWord : this.activeWord.toLowerCase();
+          const b = this.config.caseSensitive ? input : input.toLowerCase();
+          const lev = levenshtein(a, b);
+          const activeWordLen = this.activeWord.length;
+          const similarity = (lev > activeWordLen) ? 0 : 1 - lev / activeWordLen;
+          const accepted = similarity >= this.config.minimumAccuracy;
+          // console.log({lev, activeWordLen, similarity, accepted, minimumAccuracy: this.config.minimumAccuracy});
+          return {accepted, accuracy: similarity};
+        }
+
+        consumeActiveWord() {
+          this.textView.removeChild(this.textView.firstChild);
+          if (!this.textView.firstChild) {
+            this.endGame();
+          } else {
+            this.textView.firstChild.classList.add('first');
+            this.activeWord = this.textView.firstChild.innerHTML;
+          }
+        }
+
+        admitInput(input) {
+          const validation = this.validateInput(input);
+          if (validation.accepted) {
+            this.consumeActiveWord();
+          }
+          return validation;
         }
 
       }
@@ -733,9 +760,58 @@
       }
 
       class ResultsPanelController {
+
+        fullTypedText;
+
+        constructor(fullTypedText) {
+          this.fullTypedText = fullTypedText;
+        }
+
+        displayInput(input, validation) {
+          const newWordSpan = document.createElement('span');
+          newWordSpan.classList.add('typed-word');
+          newWordSpan.innerHTML = input;
+          if (!validation.accepted) {
+            newWordSpan.classList.add('not-accepted');
+          }
+          if (validation.accuracy < 1) {
+            newWordSpan.classList.add('inaccurate');
+          }
+          this.fullTypedText.appendChild(newWordSpan);
+        }
+
       }
 
       class StatusReporter {
+
+        initDate;
+        wordCount = 0;
+        accuracies = [];
+
+        reset() {
+          initDate = undefined;
+          wordCount = 0;
+          accuracies = [];
+        }
+
+        start(initDate) {
+          this.reset();
+          this.initDate = !!initDate ? initDate : new Date();
+        }
+
+        report(accuracy) {
+          this.wordCount++;
+          this.accuracies.push(accuracy);
+        }
+
+        getStatus(refDate) {
+          refDate = !!refDate ? refDate : new Date();
+          return {
+            speedWpm: this.wordCount / (refDate - initDate), // TODO adjust for words per minute
+            avgAccuracy: this.accuracies.reduce((a, c) => a + c) / this.accuracies.length;
+          };
+        }
+
       }
 
 
@@ -751,6 +827,7 @@
       const gameStartButton = byId('gameStartButton');
       const textView = byId('textView');
       const typedText = byId('typedText');
+      const fullTypedText = byId('fullTypedText');
 
       const textService = new TextService();
 
@@ -760,7 +837,9 @@
         textService.getTextNames(),
       );
       const inputController = new InputController(typedText);
-      const textBarController = new TextBarController(textView);
+      const statusReporter = new StatusReporter();
+      const textBarController = new TextBarController(textView, statusReporter);
+      const resultsPanelController = new ResultsPanelController(fullTypedText);
 
       // wirings
 
@@ -770,7 +849,7 @@
         (e) => {
           const config = e.config;
           const textContent = textService.getTextByKey(config.textKey);
-          textBarController.displayText(textContent);
+          textBarController.displayText(textContent, config);
           inputController.enable();
         }
       );
@@ -779,10 +858,9 @@
       inputController.addEventListener(
         'inputavailable',
         (e) => {
-          console.log('inputavailable', {e});
           const input = e.input;
           const acceptance = textBarController.admitInput(input);
-          typedTextController.displayInput(acceptance, input);
+          resultsPanelController.displayInput(input, acceptance);
         }
       );
 
