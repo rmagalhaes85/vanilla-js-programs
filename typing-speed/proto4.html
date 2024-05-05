@@ -44,7 +44,7 @@
       }
 
       /* Full typed text */
-      
+
       #fullTypedText {
           background-color: #ffffc8;
           display: flex;
@@ -55,12 +55,12 @@
           color: blue;
           margin-right: 0.4em;
       }
-      
+
       #fullTypedText span.not-accepted {
           color: red;
           font-weight: bold;
       }
-      
+
       #fullTypedText span.inaccurate {
           color: red;
       }
@@ -241,7 +241,7 @@
             this.activeWord = this.textView.firstChild.innerHTML;
           }
         }
-        
+
         endGame() {
           console.log('GameController#endGame');
         }
@@ -523,6 +523,7 @@
 
 
     <script language="javascript">
+
       class ConfigurationController {
 
         eventHandlers = [];
@@ -606,77 +607,6 @@
         }
       }
 
-      class GameController {
-
-        activeWord = '';
-        textView;
-        typedText;
-        fullTypedText;
-        wpmResult;
-        textService;
-        wpmCounter;
-        config;
-        wordBarController;
-        comparisonFn;
-
-        constructor(textView, typedText, fullTypedText, wpmResult, textService, wpmCounter) {
-          this.textView = textView;
-          this.typedText = typedText;
-          this.fullTypedText = fullTypedText;
-          this.wpmResult = wpmResult;
-          this.textService = textService;
-          const this_validateInput = this.validateInput.bind(this);
-          const this_consumeActiveWord = this.consumeActiveWord.bind(this);
-          const this_displayTypedWord = this.displayTypedWord.bind(this);
-          typedText.addEventListener('keydown', function(e) {
-            if (e.keyCode !== 32 && e.keyCode !== 13) return;
-            e.preventDefault();
-            const input = typedText.value;
-            const validation = this_validateInput(input);
-            // console.log({validation});
-            typedText.value = '';
-            wpmResult.innerHTML = wpmCounter.averageWordsPerMinute;
-            this_displayTypedWord(input, validation);
-            if (validation.accepted) {
-              wpmCounter.recordWordTime((new Date()).getTime());
-              this_consumeActiveWord();
-            }
-            // TODO implement reloadable timer to reset the wpm counter
-          })
-        }
-
-        consumeActiveWord() {
-          this.textView.removeChild(this.textView.firstChild);
-          if (!this.textView.firstChild) {
-            this.endGame();
-          } else {
-            this.textView.firstChild.classList.add('first');
-            this.activeWord = this.textView.firstChild.innerHTML;
-          }
-        }
-        
-        endGame() {
-          console.log('GameController#endGame');
-        }
-
-        displayTypedWord(word, validation) {
-          // displays typed word in the appropriate area and format it according to
-          // the validation status -- bold-red in case it hasnt been accepted, just red
-          // in case it's been accepted although not a full-match
-          const newWordSpan = document.createElement('span');
-          newWordSpan.classList.add('typed-word');
-          newWordSpan.innerHTML = word;
-          if (!validation.accepted) {
-            newWordSpan.classList.add('not-accepted');
-          }
-          if (validation.accuracy < 1) {
-            newWordSpan.classList.add('inaccurate');
-          }
-          this.fullTypedText.appendChild(newWordSpan);
-        }
-
-      }
-
       class TextBarController {
 
         textView;
@@ -707,12 +637,47 @@
 
       }
 
-      class InputController {
+      class EventDriver {
 
-        enable() {
-        }
+        eventHandlers = [];
 
         addEventListener(eventName, eventHandler) {
+          this.eventHandlers.push({eventName, eventHandler});
+        }
+
+        notifyListeners(eventName, eventArgs) {
+          this.eventHandlers
+            .filter(el => el.eventName === eventName)
+            .forEach(el => el.eventHandler(eventArgs));
+        }
+
+      }
+
+      class InputController extends EventDriver {
+
+        typedText;
+
+        constructor(typedText) {
+          super();
+          this.typedText = typedText;
+          this.disable();
+          const this_notifyListeners = this.notifyListeners.bind(this);
+          typedText.addEventListener('keydown', function(e) {
+            if (e.keyCode !== 32 && e.keyCode !== 13) return;
+            e.preventDefault();
+            const input = typedText.value;
+            typedText.value = '';
+            this_notifyListeners('inputavailable', {input});
+          })
+        }
+
+        enable() {
+          this.typedText.disabled = false;
+          this.typedText.focus();
+        }
+
+        disable() {
+          this.typedText.disabled = true;
         }
 
       }
@@ -775,9 +740,6 @@
       class ResultsPanelController {
       }
 
-      class TypedTextController {
-      }
-
       class StatusReporter {
       }
 
@@ -793,6 +755,7 @@
       const chkPunctuation = byId('chkPunctuation');
       const gameStartButton = byId('gameStartButton');
       const textView = byId('textView');
+      const typedText = byId('typedText');
 
       const textService = new TextService();
 
@@ -801,7 +764,7 @@
         chkCaseSensitive, chkPunctuation, gameStartButton,
         textService.getTextNames(),
       );
-      const inputController = new InputController();
+      const inputController = new InputController(typedText);
       const textBarController = new TextBarController(textView);
 
       // wirings
@@ -821,9 +784,10 @@
       inputController.addEventListener(
         'inputavailable',
         (e) => {
+          console.log('inputavailable', {e});
           const input = e.input;
           const acceptance = textBarController.admitInput(input);
-          typedTextController.displayInput(acceptance, input);            
+          typedTextController.displayInput(acceptance, input);
         }
       );
 
@@ -849,7 +813,7 @@
           resultsPaneController.displayResults(e.results);
         },
       );
-      
+
     </script>
   </body>
 </html>
