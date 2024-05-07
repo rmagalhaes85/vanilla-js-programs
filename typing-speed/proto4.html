@@ -114,7 +114,8 @@
       <hr />
       <div id="resultsPanel">
         <div><span>Results:</span></div>
-        <div><span>Speed (WPM):</span><span id="wpmResult">&nbsp;</span></div>
+        <div><span>Speed (WPM):</span><span id="wpmSpeedResult">&nbsp;</span></div>
+        <div><span>Average Accuracy:</span><span id="avgAccuracyResult">&nbsp/</span></div>
         <div><span>Typed text:</span></div>
         <div><div id="fullTypedText">&nbsp;</div></div>
       </div>
@@ -575,14 +576,32 @@
         }
       }
 
+      class EventDriver {
+
+        eventHandlers = [];
+
+        addEventListener(eventName, eventHandler) {
+          this.eventHandlers.push({eventName, eventHandler});
+        }
+
+        notifyListeners(eventName, eventArgs) {
+          this.eventHandlers
+            .filter(el => el.eventName === eventName)
+            .forEach(el => el.eventHandler(eventArgs));
+        }
+
+      }
+
       class TextBarController extends EventDriver {
 
         activeWord;
         config;
         textView;
         statusReporter;
+        statusTimerHandler;
 
         constructor(textView, statusReporter) {
+          super();
           this.textView = textView;
           this.statusReporter = statusReporter;
         }
@@ -590,6 +609,15 @@
         start() {
           this.statusReporter.start();
           // TODO start timer for periodical result reports
+          this.statusTimerHandler = window.setInterval(() => {
+            const status = this.statusReporter.getStatus();
+            this.notifyListeners('results', {results: status});
+          }, 1500);
+        }
+
+        reset() {
+          this.statusTimerHandler.cancelInterval();
+          this.statusReporter.reset();
         }
 
         displayText(text, config) {
@@ -655,23 +683,8 @@
           if (validation.accepted) {
             this.consumeActiveWord();
           }
+          this.statusReporter.report(validation.accuracy);
           return validation;
-        }
-
-      }
-
-      class EventDriver {
-
-        eventHandlers = [];
-
-        addEventListener(eventName, eventHandler) {
-          this.eventHandlers.push({eventName, eventHandler});
-        }
-
-        notifyListeners(eventName, eventArgs) {
-          this.eventHandlers
-            .filter(el => el.eventName === eventName)
-            .forEach(el => el.eventHandler(eventArgs));
         }
 
       }
@@ -732,7 +745,11 @@
             name: 'Frank Bickerton',
             text: 'Frank Bickerton spent most of the 1912 winter working to convert it to a sledge, fashioning brakes from a pair of geological drills and a steering system from the plane\'s landing gear. It was first tested on the 15th of November, 1912 and subsequently assisted in laying',
           },
-
+          {
+            key: 'escola-realengo',
+            name: 'Escola Militar do Realengo',
+            text: 'A Escola Militar do Realengo foi a instituição formadora de oficiais do Exército Brasileiro, de 1913 até sua transferência a Resende, em 1944, originando a Academia Militar das Agulhas Negras (AMAN). Ali iniciava a formação da elite militar, parte importante da consolidação do Estado republicano em sua época. Seus alunos, denominados cadetes após 1931, formavam-se como aspirantes-a-oficial, aptos a chefiar pelotões, e eram designados para os corpos de tropa. Mais acima na hierarquia militar, os oficiais prosseguiriam a instrução na Escola de Aperfeiçoamento de Oficiais e outras instituições. Cadetes da Aviação tinham apenas o início da formação no Realengo, concluindo-a na Escola de Aviação Militar, no Campo dos Afonsos.',
+          },
 
         ];
 
@@ -762,9 +779,13 @@
       class ResultsPanelController {
 
         fullTypedText;
+        wpmSpeedResult;
+        avgAccuracyResult;
 
-        constructor(fullTypedText) {
+        constructor(fullTypedText, wpmSpeedResult, avgAccuracyResult) {
           this.fullTypedText = fullTypedText;
+          this.wpmSpeedResult = wpmSpeedResult;
+          this.avgAccuracyResult = avgAccuracyResult;
         }
 
         displayInput(input, validation) {
@@ -780,6 +801,11 @@
           this.fullTypedText.appendChild(newWordSpan);
         }
 
+        displayResults(results) {
+          this.wpmSpeedResult.innerHTML = results.speedWpm;
+          this.avgAccuracyResult.innerHTML = (Math.round(10000 * results.avgAccuracy) / 100) + '%';
+        }
+
       }
 
       class StatusReporter {
@@ -789,9 +815,9 @@
         accuracies = [];
 
         reset() {
-          initDate = undefined;
-          wordCount = 0;
-          accuracies = [];
+          this.initDate = undefined;
+          this.wordCount = 0;
+          this.accuracies = [];
         }
 
         start(initDate) {
@@ -800,15 +826,17 @@
         }
 
         report(accuracy) {
+          //console.log('report, accuracy:', accuracy);
           this.wordCount++;
           this.accuracies.push(accuracy);
         }
 
         getStatus(refDate) {
           refDate = !!refDate ? refDate : new Date();
+          //console.log(`getStatus: wordCount: ${this.wordCount}; accuracies: ${this.accuracies}`);
           return {
-            speedWpm: this.wordCount / (refDate - initDate), // TODO adjust for words per minute
-            avgAccuracy: this.accuracies.reduce((a, c) => a + c) / this.accuracies.length;
+            speedWpm: Math.round(60000 * this.wordCount / (refDate - this.initDate)), // TODO adjust for words per minute
+            avgAccuracy: this.accuracies.reduce((a, c) => a + c, 0) / this.accuracies.length,
           };
         }
 
@@ -828,6 +856,8 @@
       const textView = byId('textView');
       const typedText = byId('typedText');
       const fullTypedText = byId('fullTypedText');
+      const wpmSpeedResult = byId('wpmSpeedResult');
+      const avgAccuracyResult = byId('avgAccuracyResult');
 
       const textService = new TextService();
 
@@ -839,7 +869,8 @@
       const inputController = new InputController(typedText);
       const statusReporter = new StatusReporter();
       const textBarController = new TextBarController(textView, statusReporter);
-      const resultsPanelController = new ResultsPanelController(fullTypedText);
+      const resultsPanelController = new ResultsPanelController(
+        fullTypedText, wpmSpeedResult, avgAccuracyResult);
 
       // wirings
 
@@ -851,6 +882,7 @@
           const textContent = textService.getTextByKey(config.textKey);
           textBarController.displayText(textContent, config);
           inputController.enable();
+          textBarController.start();
         }
       );
 
@@ -883,7 +915,7 @@
         (e) => {
           // textBarController periodically makes results available. Results contain
           // average words-per-minute speed and average accuracy
-          resultsPaneController.displayResults(e.results);
+          resultsPanelController.displayResults(e.results);
         },
       );
 
