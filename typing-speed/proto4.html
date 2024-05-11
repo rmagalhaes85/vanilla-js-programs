@@ -281,6 +281,10 @@
           }
         }
 
+        endGame() {
+          this.notifyListeners('outofwords');
+        }
+
         admitInput(input) {
           const validation = this.validateInput(input);
           if (validation.accepted) {
@@ -295,10 +299,12 @@
       class InputController extends EventDriver {
 
         typedText;
+        finishButton;
 
-        constructor(typedText) {
+        constructor(typedText, finishButton) {
           super();
           this.typedText = typedText;
+          this.finishButton = finishButton;
           this.disable();
           typedText.addEventListener('keydown', (e) => {
             if (e.keyCode !== 32 && e.keyCode !== 13) return;
@@ -307,6 +313,9 @@
             typedText.value = '';
             this.notifyListeners('inputavailable', {input});
           })
+          finishButton.addEventListener('click', (e) => {
+            this.notifyListeners('endgamerequested');
+          });
         }
 
         enable() {
@@ -467,6 +476,7 @@
       const gameStartButton = byId('gameStartButton');
       const textView = byId('textView');
       const typedText = byId('typedText');
+      const finishButton = byId('finishButton');
       const fullTypedText = byId('fullTypedText');
       const wpmSpeedResult = byId('wpmSpeedResult');
       const avgAccuracyResult = byId('avgAccuracyResult');
@@ -478,7 +488,7 @@
         chkCaseSensitive, chkPunctuation, chkRemoveSpecialChars, gameStartButton,
         textService.getTextNames(),
       );
-      const inputController = new InputController(typedText);
+      const inputController = new InputController(typedText, finishButton);
       const statusReporter = new StatusReporter();
       const textBarController = new TextBarController(textView, statusReporter);
       const resultsPanelController = new ResultsPanelController(
@@ -514,19 +524,12 @@
         }
       );
 
-      // when the button is pressed
-      // COULD USE THE SAME EVENT HANDLER AS 'outofwords' EVENT
-      inputController.addEventListener(
-        'endgamerequested',
-        (e) => {},
-      );
+      function endgame(e) {
+        console.log('game is about to finish', e);
+      }
 
-      // when the game ends b/c there are no further words
-      // COULD USE THE SAME EVENT HANDLER AS 'endgamerequested' EVENT
-      textBarController.addEventListener(
-        'outofwords',
-        (e) => {},
-      );
+      inputController.addEventListener('endgamerequested', endgame);
+      textBarController.addEventListener('outofwords', endgame);
 
       textBarController.addEventListener(
         'results',
@@ -538,5 +541,5 @@
       );
 
     </script>
-  </body>
+</body>
 </html>
