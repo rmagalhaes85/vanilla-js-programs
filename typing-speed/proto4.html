@@ -3,11 +3,21 @@
     <title>Typing Speed Meter</title>
     <style>
 
+      /* general */
+
+      input:focus, select:focus {
+          background-color: #f6f645;
+      }
+
       /* Configuration */
 
       #configurationPanel {
           border: 0.5em ridge #c8c8c8;
           padding: 0.75em;
+      }
+
+      #configurationPanel.disabled {
+          background-color: #e8e8e8;
       }
 
       #configurationPanel div {
@@ -23,6 +33,10 @@
       #gamePanel {
           border: 0.5em ridge #c8c8c8;
           padding: 1em;
+      }
+
+      #gamePanel.disabled {
+          background-color: #e8e8e8;
       }
 
       /* Text Viewer */
@@ -128,11 +142,20 @@
 
       class ConfigurationController {
 
+        chkCaseSensitive;
+        chkPunctuation;
+        chkRemoveSpecialChars;
+        configurationPanel;
         eventHandlers = [];
+        gameStartButton;
+        minimumAccuracySelect;
+        modeSelect;
+        textList;
+        textSelect;
 
         constructor(
           modeSelect, textSelect, minimumAccuracySelect, chkCaseSensitive, chkPunctuation,
-          chkRemoveSpecialChars, gameStartButton, textList,
+          chkRemoveSpecialChars, gameStartButton, textList, configurationPanel,
         ) {
           this.modeSelect = modeSelect;
           this.textSelect = textSelect;
@@ -142,6 +165,7 @@
           this.chkRemoveSpecialChars = chkRemoveSpecialChars;
           this.gameStartButton = gameStartButton;
           this.textList = textList;
+          this.configurationPanel = configurationPanel;
           gameStartButton.addEventListener('click', (e) => {
             this.notifyListeners('configurationready', {config: this.getConfig()});
           });
@@ -177,6 +201,32 @@
             textSelect.appendChild(op);
           });
         }
+
+        enable() {
+          this.modeSelect.disabled = false;
+          this.textSelect.disabled = false;
+          this.minimumAccuracySelect.disabled = false;
+          this.chkCaseSensitive.disabled = false;
+          this.chkPunctuation.disabled = false;
+          this.chkRemoveSpecialChars.disabled = false;
+          this.gameStartButton.disabled = false;
+          this.textList.disabled = false;
+          this.configurationPanel.classList.remove('disabled');
+          this.modeSelect.focus();
+        }
+
+        disable() {
+          this.modeSelect.disabled = true;
+          this.textSelect.disabled = true;
+          this.minimumAccuracySelect.disabled = true;
+          this.chkCaseSensitive.disabled = true;
+          this.chkPunctuation.disabled = true;
+          this.chkRemoveSpecialChars.disabled = true;
+          this.gameStartButton.disabled = true;
+          this.textList.disabled = true;
+          this.configurationPanel.classList.add('disabled');
+        }
+
       }
 
       class EventDriver {
@@ -300,11 +350,13 @@
 
         typedText;
         finishButton;
+        gamePanel;
 
-        constructor(typedText, finishButton) {
+        constructor(typedText, finishButton, gamePanel) {
           super();
           this.typedText = typedText;
           this.finishButton = finishButton;
+          this.gamePanel = gamePanel;
           this.disable();
           typedText.addEventListener('keydown', (e) => {
             if (e.keyCode !== 32 && e.keyCode !== 13) return;
@@ -319,12 +371,17 @@
         }
 
         enable() {
+          console.log('inputcontroller.enable');
           this.typedText.disabled = false;
           this.typedText.focus();
+          this.finishButton.disabled = false;
+          this.gamePanel.classList.remove('disabled');
         }
 
         disable() {
           this.typedText.disabled = true;
+          this.finishButton.disabled = true;
+          this.gamePanel.classList.add('disabled');
         }
 
       }
@@ -481,15 +538,17 @@
         const fullTypedText = byId('fullTypedText');
         const wpmSpeedResult = byId('wpmSpeedResult');
         const avgAccuracyResult = byId('avgAccuracyResult');
+        const gamePanel = byId('gamePanel');
+        const configurationPanel = byId('configurationPanel');
 
         const textService = new TextService();
 
         const configurationController = new ConfigurationController(
           modeSelect, textSelect, minimumAccuracySelect,
           chkCaseSensitive, chkPunctuation, chkRemoveSpecialChars, gameStartButton,
-          textService.getTextNames(),
+          textService.getTextNames(), configurationPanel,
         );
-        const inputController = new InputController(typedText, finishButton);
+        const inputController = new InputController(typedText, finishButton, gamePanel);
         const statusReporter = new StatusReporter();
         const textBarController = new TextBarController(textView, statusReporter);
         const resultsPanelController = new ResultsPanelController(
@@ -507,10 +566,11 @@
               removePunctuation: !config.requirePunctuation,
               removeSpecialChars: !!config.removeSpecialChars,
             };
+            configurationController.disable();
+            inputController.enable();
             const {textKey} = e.config;
             const textContent = textService.getTextByKey(textKey, textOptions);
             textBarController.displayText(textContent, config);
-            inputController.enable();
             textBarController.start();
           }
         );
@@ -526,7 +586,9 @@
         );
 
         function endgame(e) {
-          console.log('game is about to finish', e);
+          console.log('function endgame');
+          inputController.disable();
+          configurationController.enable();
         }
 
         inputController.addEventListener('endgamerequested', endgame);
@@ -540,6 +602,9 @@
             resultsPanelController.displayResults(e.results);
           },
         );
+
+        configurationController.enable();
+        inputController.disable();
 
       }
 
