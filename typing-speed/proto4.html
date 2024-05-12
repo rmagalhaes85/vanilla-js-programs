@@ -462,83 +462,89 @@
 
       }
 
+      function game() {
 
-      function byId(id) {
-        return document.getElementById(id);
+        function byId(id) {
+          return document.getElementById(id);
+        }
+
+        const modeSelect = byId('modeSelect');
+        const textSelect = byId('textSelect');
+        const minimumAccuracySelect = byId('minimumAccuracySelect');
+        const chkCaseSensitive = byId('chkCaseSensitive');
+        const chkPunctuation = byId('chkPunctuation');
+        const chkRemoveSpecialChars = byId('chkRemoveSpecialChars');
+        const gameStartButton = byId('gameStartButton');
+        const textView = byId('textView');
+        const typedText = byId('typedText');
+        const finishButton = byId('finishButton');
+        const fullTypedText = byId('fullTypedText');
+        const wpmSpeedResult = byId('wpmSpeedResult');
+        const avgAccuracyResult = byId('avgAccuracyResult');
+
+        const textService = new TextService();
+
+        const configurationController = new ConfigurationController(
+          modeSelect, textSelect, minimumAccuracySelect,
+          chkCaseSensitive, chkPunctuation, chkRemoveSpecialChars, gameStartButton,
+          textService.getTextNames(),
+        );
+        const inputController = new InputController(typedText, finishButton);
+        const statusReporter = new StatusReporter();
+        const textBarController = new TextBarController(textView, statusReporter);
+        const resultsPanelController = new ResultsPanelController(
+          fullTypedText, wpmSpeedResult, avgAccuracyResult);
+
+        // wirings
+
+        // when the configuration is ready
+        configurationController.addEventListener(
+          'configurationready',
+          (e) => {
+            const config = e.config;
+            console.log('configurationready', config);
+            const textOptions = {
+              removePunctuation: !config.requirePunctuation,
+              removeSpecialChars: !!config.removeSpecialChars,
+            };
+            const {textKey} = e.config;
+            const textContent = textService.getTextByKey(textKey, textOptions);
+            textBarController.displayText(textContent, config);
+            inputController.enable();
+            textBarController.start();
+          }
+        );
+
+        // when a word is typed and confirmed using RET or SPACE
+        inputController.addEventListener(
+          'inputavailable',
+          (e) => {
+            const input = e.input;
+            const acceptance = textBarController.admitInput(input);
+            resultsPanelController.displayInput(input, acceptance);
+          }
+        );
+
+        function endgame(e) {
+          console.log('game is about to finish', e);
+        }
+
+        inputController.addEventListener('endgamerequested', endgame);
+        textBarController.addEventListener('outofwords', endgame);
+
+        textBarController.addEventListener(
+          'results',
+          (e) => {
+            // textBarController periodically makes results available. Results contain
+            // average words-per-minute speed and average accuracy
+            resultsPanelController.displayResults(e.results);
+          },
+        );
+
       }
 
-      const modeSelect = byId('modeSelect');
-      const textSelect = byId('textSelect');
-      const minimumAccuracySelect = byId('minimumAccuracySelect');
-      const chkCaseSensitive = byId('chkCaseSensitive');
-      const chkPunctuation = byId('chkPunctuation');
-      const chkRemoveSpecialChars = byId('chkRemoveSpecialChars');
-      const gameStartButton = byId('gameStartButton');
-      const textView = byId('textView');
-      const typedText = byId('typedText');
-      const finishButton = byId('finishButton');
-      const fullTypedText = byId('fullTypedText');
-      const wpmSpeedResult = byId('wpmSpeedResult');
-      const avgAccuracyResult = byId('avgAccuracyResult');
 
-      const textService = new TextService();
-
-      const configurationController = new ConfigurationController(
-        modeSelect, textSelect, minimumAccuracySelect,
-        chkCaseSensitive, chkPunctuation, chkRemoveSpecialChars, gameStartButton,
-        textService.getTextNames(),
-      );
-      const inputController = new InputController(typedText, finishButton);
-      const statusReporter = new StatusReporter();
-      const textBarController = new TextBarController(textView, statusReporter);
-      const resultsPanelController = new ResultsPanelController(
-        fullTypedText, wpmSpeedResult, avgAccuracyResult);
-
-      // wirings
-
-      // when the configuration is ready
-      configurationController.addEventListener(
-        'configurationready',
-        (e) => {
-          const config = e.config;
-          console.log('configurationready', config);
-          const textOptions = {
-            removePunctuation: !config.requirePunctuation,
-            removeSpecialChars: !!config.removeSpecialChars,
-          };
-          const {textKey} = e.config;
-          const textContent = textService.getTextByKey(textKey, textOptions);
-          textBarController.displayText(textContent, config);
-          inputController.enable();
-          textBarController.start();
-        }
-      );
-
-      // when a word is typed and confirmed using RET or SPACE
-      inputController.addEventListener(
-        'inputavailable',
-        (e) => {
-          const input = e.input;
-          const acceptance = textBarController.admitInput(input);
-          resultsPanelController.displayInput(input, acceptance);
-        }
-      );
-
-      function endgame(e) {
-        console.log('game is about to finish', e);
-      }
-
-      inputController.addEventListener('endgamerequested', endgame);
-      textBarController.addEventListener('outofwords', endgame);
-
-      textBarController.addEventListener(
-        'results',
-        (e) => {
-          // textBarController periodically makes results available. Results contain
-          // average words-per-minute speed and average accuracy
-          resultsPanelController.displayResults(e.results);
-        },
-      );
+      game();
 
     </script>
 </body>
