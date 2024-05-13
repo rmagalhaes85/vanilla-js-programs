@@ -293,7 +293,8 @@
         }
 
         reset() {
-          this.statusTimerHandler.cancelInterval();
+          clearInterval(this.statusTimerHandler);
+          this.statusTimerHandler = undefined;
           this.statusReporter.reset();
         }
 
@@ -356,6 +357,11 @@
         }
 
         endGame() {
+          const emptySpan = document.createElement('span');
+          emptySpan.innerHTML = '&nbsp;';
+          this.textView.appendChild(emptySpan);
+          clearInterval(this.statusTimerHandler);
+          this.statusTimerHandler = undefined;
           this.notifyListeners('outofwords');
         }
 
