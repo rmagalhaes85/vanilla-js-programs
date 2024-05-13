@@ -5,6 +5,20 @@
 
       /* general */
 
+      body, html {
+          width: 100%;
+          /* margin: 10px; */
+          margin: 0;
+          padding: 0;
+      }
+
+      #container {
+          display: flex;
+          flex-direction: row;
+          align-items: stretch;
+          padding: 10px;
+      }
+
       input:focus, select:focus {
           background-color: #f6f645;
       }
@@ -12,8 +26,12 @@
       /* Configuration */
 
       #configurationPanel {
+          flex: 1;
           border: 0.5em ridge #c8c8c8;
           padding: 0.75em;
+          margin-right: 10px;
+          overflow: clip;
+          min-width: 0;
       }
 
       #configurationPanel.disabled {
@@ -31,8 +49,11 @@
       /* Game Panel */
 
       #gamePanel {
+          flex: 3;
           border: 0.5em ridge #c8c8c8;
           padding: 1em;
+          overflow: clip;
+          min-width: 0;
       }
 
       #gamePanel.disabled {
@@ -84,58 +105,61 @@
   </head>
   <body>
     <h1>Typing Speed Meter</h1>
-    <div id="configurationPanel">
-      <div>
-        <span>Mode:</span>
-        <select id="modeSelect">
-          <option value="followtext">Follow text</option>
-          <option value="freetyping">Free typing</option>
-        </select>
+    <div id="container">
+      <div id="configurationPanel">
+        <div>
+          <span>Mode:</span>
+          <select id="modeSelect">
+            <option value="followtext">Follow text</option>
+            <option value="freetyping">Free typing</option>
+          </select>
+        </div>
+        <div>
+          <span>Text:</span>
+          <select id="textSelect">
+            <!-- <option value="loremipsum1">Lorem Ipsum 1</option> -->
+          </select>
+        </div>
+        <div>
+          <span>Minimum accuracy:</span>
+          <select id="minimumAccuracySelect">
+            <option value="100">Full-match only</option>
+            <option value="85">85%</option>
+          </select>
+        </div>
+        <div>
+          <span><label><input type="checkbox" id="chkCaseSensitive" /> Case-sensitive</label></span>
+        </div>
+        <div>
+          <span><label><input type="checkbox" id="chkPunctuation" /> Show punctuation</label></span>
+        </div>
+        <div>
+          <span><label><input type="checkbox" id="chkRemoveSpecialChars" /> Remove special characters</label></span>
+        </div>
+        <div>
+          <input type="button" id="gameStartButton" value="START! (CTRL+1)" />
+        </div>
       </div>
-      <div>
-        <span>Text:</span>
-        <select id="textSelect">
-          <!-- <option value="loremipsum1">Lorem Ipsum 1</option> -->
-        </select>
-      </div>
-      <div>
-        <span>Minimum accuracy:</span>
-        <select id="minimumAccuracySelect">
-          <option value="100">Full-match only</option>
-          <option value="85">85%</option>
-        </select>
-      </div>
-      <div>
-        <span><label><input type="checkbox" id="chkCaseSensitive" /> Case-sensitive</label></span>
-      </div>
-      <div>
-        <span><label><input type="checkbox" id="chkPunctuation" /> Show punctuation</label></span>
-      </div>
-      <div>
-        <span><label><input type="checkbox" id="chkRemoveSpecialChars" /> Remove special characters</label></span>
-      </div>
-      <div>
-        <input type="button" id="gameStartButton" value="START! (CTRL+1)" />
-      </div>
-    </div>
-    <div id="gamePanel">
-      <div id="textPanel">
-        <span>Text:</span>
-        <div id="textView"><span>&nbsp;</span></div>
-      </div>
-      <hr />
-      <div id="typingPanel">
-        <div><span>Type here:</span></div>
-        <input type="text" id="typedText" />
-        <input type="button" id="finishButton" value="FINISH (CTRL+2)" />
-      </div>
-      <hr />
-      <div id="resultsPanel">
-        <div><span>Results:</span></div>
-        <div><span>Speed (WPM):</span><span id="wpmSpeedResult">&nbsp;</span></div>
-        <div><span>Average Accuracy:</span><span id="avgAccuracyResult">&nbsp/</span></div>
-        <div><span>Typed text:</span></div>
-        <div><div id="fullTypedText">&nbsp;</div></div>
+      <div id="gamePanel">
+        <div id="textPanel">
+          <span>Text:</span>
+          <div id="textView"><span>&nbsp;</span></div>
+        </div>
+        <hr />
+        <div id="typingPanel">
+          <div><span>Type here:</span></div>
+          <input type="text" id="typedText" />
+          <input type="button" id="finishButton" value="FINISH (CTRL+2)" />
+        </div>
+        <hr />
+        <div id="resultsPanel">
+          <div><span>Results:</span></div>
+          <div><span>Speed (WPM):</span><span id="wpmSpeedResult">&nbsp;</span></div>
+          <div><span>"Instant" Speed (WPM):</span><span id="instantWpmSpeedResult">&nbsp/</span></div>
+          <div><span>Average Accuracy:</span><span id="avgAccuracyResult">&nbsp/</span></div>
+          <div><span>Typed text:</span></div>
+          <div><div id="fullTypedText">&nbsp;</div></div>
+        </div>
       </div>
     </div>
     <script language="javascript">
@@ -459,11 +483,13 @@
         fullTypedText;
         wpmSpeedResult;
         avgAccuracyResult;
+        instWpmSpeedResult;
 
-        constructor(fullTypedText, wpmSpeedResult, avgAccuracyResult) {
+        constructor(fullTypedText, wpmSpeedResult, avgAccuracyResult, instWpmSpeedResult) {
           this.fullTypedText = fullTypedText;
           this.wpmSpeedResult = wpmSpeedResult;
           this.avgAccuracyResult = avgAccuracyResult;
+          this.instWpmSpeedResult = instWpmSpeedResult;
         }
 
         displayInput(input, validation) {
@@ -480,8 +506,10 @@
         }
 
         displayResults(results) {
-          this.wpmSpeedResult.innerHTML = results.speedWpm;
-          this.avgAccuracyResult.innerHTML = (Math.round(10000 * results.avgAccuracy) / 100) + '%';
+          console.log('displayResults', results);
+          this.wpmSpeedResult.innerHTML = !!results.speedWpm ? results.speedWpm : '';
+          this.avgAccuracyResult.innerHTML = !!results.avgAccuracy ? (Math.round(10000 * results.avgAccuracy) / 100) + '%' : '';
+          this.instWpmSpeedResult.innerHTML = !!results.instSpeedWpm ? results.instSpeedWpm : '';
         }
 
       }
@@ -491,11 +519,15 @@
         initDate;
         wordCount = 0;
         accuracies = [];
+        // how many words are used to compute the "instantaneous" speed
+        instWordCount = 3;
+        instWordTimes;
 
         reset() {
           this.initDate = undefined;
           this.wordCount = 0;
           this.accuracies = [];
+          this.instWordTimes = [];
         }
 
         start(initDate) {
@@ -507,14 +539,27 @@
           //console.log('report, accuracy:', accuracy);
           this.wordCount++;
           this.accuracies.push(accuracy);
+          this.instWordTimes.push((new Date()).getTime());
+          if (this.instWordTimes.length > this.instWordCount) {
+            this.instWordTimes.shift();
+          }
         }
 
         getStatus(refDate) {
           refDate = !!refDate ? refDate : new Date();
+          const instSpeedWpm = (this.instWordTimes.length >= this.instWordCount)
+                ? this.computeSpeed(this.instWordCount, this.instWordTimes[0], refDate.getTime())
+                : undefined;
           return {
-            speedWpm: Math.round(60000 * this.wordCount / (refDate.getTime() - this.initDate.getTime())),
+            //speedWpm: Math.round(60000 * this.wordCount / (refDate.getTime() - this.initDate.getTime())),
+            speedWpm: this.computeSpeed(this.wordCount, this.initDate.getTime(), refDate.getTime()),
             avgAccuracy: this.accuracies.reduce((a, c) => a + c, 0) / this.accuracies.length,
+            instSpeedWpm,
           };
+        }
+
+        computeSpeed(wordCount, initTime, currentTime) {
+          return Math.round(60000 * wordCount / (currentTime - initTime));
         }
 
       }
@@ -537,6 +582,7 @@
         const finishButton = byId('finishButton');
         const fullTypedText = byId('fullTypedText');
         const wpmSpeedResult = byId('wpmSpeedResult');
+        const instantWpmSpeedResult = byId('instantWpmSpeedResult');
         const avgAccuracyResult = byId('avgAccuracyResult');
         const gamePanel = byId('gamePanel');
         const configurationPanel = byId('configurationPanel');
@@ -552,7 +598,7 @@
         const statusReporter = new StatusReporter();
         const textBarController = new TextBarController(textView, statusReporter);
         const resultsPanelController = new ResultsPanelController(
-          fullTypedText, wpmSpeedResult, avgAccuracyResult);
+          fullTypedText, wpmSpeedResult, avgAccuracyResult, instantWpmSpeedResult);
 
         // wirings
 
