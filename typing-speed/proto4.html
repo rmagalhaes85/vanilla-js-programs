@@ -195,10 +195,11 @@
           this.textList = textList;
           this.configurationPanel = configurationPanel;
           gameStartButton.addEventListener('click', (e) => {
-            this.notifyListeners('configurationready', {config: this.getConfig()});
+            this.signalConfigurationReady();
           });
           this.loadAvailableTexts()
         }
+
 
         addEventListener(eventName, eventHandler) {
           if (eventName !== 'configurationready') return;
@@ -253,6 +254,10 @@
           this.gameStartButton.disabled = true;
           this.textList.disabled = true;
           this.configurationPanel.classList.add('disabled');
+        }
+
+        signalConfigurationReady() {
+          this.notifyListeners('configurationready', {config: this.getConfig()});
         }
 
       }
@@ -406,8 +411,12 @@
             this.notifyListeners('inputavailable', {input});
           })
           finishButton.addEventListener('click', (e) => {
-            this.notifyListeners('endgamerequested');
+            this.signalGameEnd();
           });
+        }
+
+        signalGameEnd() {
+          this.notifyListeners('endgamerequested');
         }
 
         enable() {
@@ -677,6 +686,19 @@
             resultsPanelController.displayResults(e.results);
           },
         );
+
+        window.addEventListener('keydown', function(e) {
+          if (e.ctrlKey) {
+            switch (e.key) {
+            case '1':
+              configurationController.signalConfigurationReady();
+              break;
+            case '2':
+              inputController.signalGameEnd();
+              break;
+            }
+          }
+        });
 
         configurationController.enable();
         inputController.disable();
