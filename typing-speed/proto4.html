@@ -160,6 +160,7 @@
           <div><span>Results:</span></div>
           <div><span>Speed (WPM):</span><span id="wpmSpeedResult">&nbsp;</span></div>
           <div><span>"Instant" Speed (WPM):</span><span id="instantWpmSpeedResult">&nbsp/</span></div>
+          <div><span>Race Duration:</span><span id="raceDurationSpan">&nbsp/</span></div>
           <div><span>Average Accuracy:</span><span id="avgAccuracyResult">&nbsp/</span></div>
           <div><span>Typed text:</span></div>
           <div><div id="fullTypedText">&nbsp;</div></div>
@@ -508,12 +509,16 @@
         wpmSpeedResult;
         avgAccuracyResult;
         instWpmSpeedResult;
+        raceDurationSpan;
+        raceDurationSecs = 0;
+        raceDurationHandler;
 
-        constructor(fullTypedText, wpmSpeedResult, avgAccuracyResult, instWpmSpeedResult) {
+        constructor(fullTypedText, wpmSpeedResult, avgAccuracyResult, instWpmSpeedResult, raceDurationSpan) {
           this.fullTypedText = fullTypedText;
           this.wpmSpeedResult = wpmSpeedResult;
           this.avgAccuracyResult = avgAccuracyResult;
           this.instWpmSpeedResult = instWpmSpeedResult;
+          this.raceDurationSpan = raceDurationSpan;
         }
 
         displayInput(input, validation) {
@@ -536,15 +541,40 @@
           this.instWpmSpeedResult.innerHTML = !!results.instSpeedWpm ? results.instSpeedWpm : '';
         }
 
+        start() {
+          if (!!this.raceDurationHandler) return;
+          this.raceDurationSecs = 0;
+          this.raceDurationHandler = setInterval(() => {
+            this.raceDurationSecs++;
+            this.displayRaceDuration();
+          }, 1000);
+        }
+
         reset() {
           this.wpmSpeedResult.innerHTML = '';
           this.avgAccuracyResult.innerHTML = '';
           this.instWpmSpeedResult.innerHTML = '';
           this.fullTypedText.innerHTML = '';
+          this.stop();
+          this.raceDurationSecs = 0;
+          this.displayRaceDuration();
+          // TODO remove special styles emphasizing results from a previous game
         }
 
         stop() {
-          // TODO stop the timer (which is not implemented yet)
+          if (!this.raceDurationHandler) return;
+          clearInterval(this.raceDurationHandler);
+          this.raceDurationHandler = undefined;
+          this.displayRaceDuration();
+          // TODO apply special styles to emphasize results
+        }
+
+        displayRaceDuration() {
+          const totalTime = arguments.length > 0 ? arguments[0] : this.raceDurationSecs;
+          const seconds = totalTime % 60;
+          const minutes = Math.trunc(totalTime / 60) % 60;
+          const hours = Math.trunc(totalTime / 3600) % 3600;
+          this.raceDurationSpan.innerHTML = hours + ':' + ('0'+minutes).substr(-2) + ':' + ('0'+seconds).substr(-2);
         }
 
       }
@@ -618,6 +648,7 @@
         const fullTypedText = byId('fullTypedText');
         const wpmSpeedResult = byId('wpmSpeedResult');
         const instantWpmSpeedResult = byId('instantWpmSpeedResult');
+        const raceDurationSpan = byId('raceDurationSpan');
         const avgAccuracyResult = byId('avgAccuracyResult');
         const gamePanel = byId('gamePanel');
         const configurationPanel = byId('configurationPanel');
@@ -633,7 +664,8 @@
         const statusReporter = new StatusReporter();
         const textBarController = new TextBarController(textView, statusReporter);
         const resultsPanelController = new ResultsPanelController(
-          fullTypedText, wpmSpeedResult, avgAccuracyResult, instantWpmSpeedResult);
+          fullTypedText, wpmSpeedResult, avgAccuracyResult, instantWpmSpeedResult,
+          raceDurationSpan);
 
         // wirings
 
@@ -649,6 +681,7 @@
             };
             configurationController.disable();
             resultsPanelController.reset();
+            resultsPanelController.start();
             inputController.enable();
             const {textKey} = e.config;
             const textContent = textService.getTextByKey(textKey, textOptions);
