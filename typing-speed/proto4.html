@@ -161,6 +161,7 @@
           <div><span>Speed (WPM):</span><span id="wpmSpeedResult">&nbsp;</span></div>
           <div><span>"Instant" Speed (WPM):</span><span id="instantWpmSpeedResult">&nbsp/</span></div>
           <div><span>Race Duration:</span><span id="raceDurationSpan">&nbsp/</span></div>
+          <div><span>Word count:</span><span id="wordCountSpan">&nbsp/</span></div>
           <div><span>Average Accuracy:</span><span id="avgAccuracyResult">&nbsp/</span></div>
           <div><span>Typed text:</span></div>
           <div><div id="fullTypedText">&nbsp;</div></div>
@@ -512,13 +513,15 @@
         raceDurationSpan;
         raceDurationSecs = 0;
         raceDurationHandler;
+        wordCountSpan;
 
-        constructor(fullTypedText, wpmSpeedResult, avgAccuracyResult, instWpmSpeedResult, raceDurationSpan) {
+        constructor(fullTypedText, wpmSpeedResult, avgAccuracyResult, instWpmSpeedResult, raceDurationSpan, wordCountSpan) {
           this.fullTypedText = fullTypedText;
           this.wpmSpeedResult = wpmSpeedResult;
           this.avgAccuracyResult = avgAccuracyResult;
           this.instWpmSpeedResult = instWpmSpeedResult;
           this.raceDurationSpan = raceDurationSpan;
+          this.wordCountSpan = wordCountSpan;
         }
 
         displayInput(input, validation) {
@@ -539,6 +542,7 @@
           this.wpmSpeedResult.innerHTML = !!results.speedWpm ? results.speedWpm : '';
           this.avgAccuracyResult.innerHTML = !!results.avgAccuracy ? (Math.round(10000 * results.avgAccuracy) / 100) + '%' : '';
           this.instWpmSpeedResult.innerHTML = !!results.instSpeedWpm ? results.instSpeedWpm : '';
+          this.wordCountSpan.innerHTML = !!results.wordCount ? results.wordCount : '';
         }
 
         start() {
@@ -620,6 +624,7 @@
             speedWpm: this.computeSpeed(this.wordCount, this.initDate.getTime(), refDate.getTime()),
             avgAccuracy: this.accuracies.reduce((a, c) => a + c, 0) / this.accuracies.length,
             instSpeedWpm,
+            wordCount: this.wordCount,
           };
         }
 
@@ -649,6 +654,7 @@
         const wpmSpeedResult = byId('wpmSpeedResult');
         const instantWpmSpeedResult = byId('instantWpmSpeedResult');
         const raceDurationSpan = byId('raceDurationSpan');
+        const wordCountSpan = byId('wordCountSpan');
         const avgAccuracyResult = byId('avgAccuracyResult');
         const gamePanel = byId('gamePanel');
         const configurationPanel = byId('configurationPanel');
@@ -665,7 +671,7 @@
         const textBarController = new TextBarController(textView, statusReporter);
         const resultsPanelController = new ResultsPanelController(
           fullTypedText, wpmSpeedResult, avgAccuracyResult, instantWpmSpeedResult,
-          raceDurationSpan);
+          raceDurationSpan, wordCountSpan);
 
         // wirings
 
