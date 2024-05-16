@@ -64,6 +64,24 @@
           background-color: #e8e8e8;
       }
 
+/* results panel */
+
+      #resultsPanel span.stat-label {
+          display: inline-block;
+          width: 30%;
+          text-align: right;
+          vertical-align: middle;
+          margin: 3px;
+          background-color: #e8e8ff;
+      }
+
+      #resultsPanel span.stat-result {
+          display: inline-block;
+          width: 40%;
+          color: red;
+          vertical-align: middle;
+      }
+
       /* Text Viewer */
 
       #textView {
@@ -157,13 +175,13 @@
         </div>
         <hr />
         <div id="resultsPanel">
-          <div><span>Results:</span></div>
-          <div><span>Speed (WPM):</span><span id="wpmSpeedResult">&nbsp;</span></div>
-          <div><span>"Instant" Speed (WPM):</span><span id="instantWpmSpeedResult">&nbsp/</span></div>
-          <div><span>Race Duration:</span><span id="raceDurationSpan">&nbsp/</span></div>
-          <div><span>Word count:</span><span id="wordCountSpan">&nbsp/</span></div>
-          <div><span>Average Accuracy:</span><span id="avgAccuracyResult">&nbsp/</span></div>
-          <div><span>Typed text:</span></div>
+          <div><h3>Results:</h3></div>
+          <div><span class="stat-label">Speed (WPM):</span><span class="stat-result" id="wpmSpeedResult">&nbsp;</span></div>
+          <div><span class="stat-label">"Instant" Speed (WPM):</span><span class="stat-result" id="instantWpmSpeedResult">&nbsp/</span></div>
+          <div><span class="stat-label">Race Duration:</span><span class="stat-result" id="raceDurationSpan">&nbsp/</span></div>
+          <div><span class="stat-label">Word count:</span><span class="stat-result" id="wordCountSpan">&nbsp/</span></div>
+          <div><span class="stat-label">Average Accuracy:</span><span class="stat-result" id="avgAccuracyResult">&nbsp/</span></div>
+          <div><span class="stat-label">Typed text:</span></div>
           <div><div id="fullTypedText">&nbsp;</div></div>
         </div>
       </div>
