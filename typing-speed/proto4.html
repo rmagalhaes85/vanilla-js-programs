@@ -441,6 +441,7 @@
 
         enable() {
           this.typedText.disabled = false;
+          this.typedText.value = '';
           this.typedText.focus();
           this.finishButton.disabled = false;
           this.gamePanel.classList.remove('disabled');
