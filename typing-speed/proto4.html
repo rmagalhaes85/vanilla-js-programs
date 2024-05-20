@@ -316,14 +316,14 @@
           if (!!this.statusTimerHandler) return;
           this.statusReporter.start();
           this.statusTimerHandler = window.setInterval(() => {
-            const status = this.statusReporter.getStatus();
-            this.notifyListeners('results', {results: status});
+            this.triggerDisplayResults();
           }, 1500);
         }
 
         stop() {
           if (!this.statusTimerHandler) return;
           clearInterval(this.statusTimerHandler);
+          this.triggerDisplayResults();
           this.statusTimerHandler = undefined;
         }
 
@@ -331,6 +331,12 @@
           this.stop();
           this.statusTimerHandler = undefined;
           this.statusReporter.reset();
+        }
+
+        triggerDisplayResults() {
+          const status = this.statusReporter.getStatus();
+          console.log('triggerDisplayResults', {status});
+          this.notifyListeners('results', {results: status});
         }
 
         displayText(text, config) {
@@ -402,10 +408,10 @@
 
         admitInput(input) {
           const validation = this.validateInput(input);
+          this.statusReporter.report(validation.accuracy);
           if (validation.accepted) {
             this.consumeActiveWord();
           }
-          this.statusReporter.report(validation.accuracy);
           return validation;
         }
 
@@ -578,6 +584,7 @@
           this.avgAccuracyResult.innerHTML = '';
           this.instWpmSpeedResult.innerHTML = '';
           this.fullTypedText.innerHTML = '';
+          this.wordCountSpan.innerHTML = '';
           this.stop();
           this.raceDurationSecs = 0;
           this.displayRaceDuration();
@@ -726,7 +733,6 @@
         );
 
         function endgame(e) {
-          console.log('function endgame');
           inputController.disable();
           configurationController.enable();
           textBarController.stop();
