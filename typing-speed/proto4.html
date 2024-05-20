@@ -313,8 +313,8 @@
         }
 
         start() {
+          if (!!this.statusTimerHandler) return;
           this.statusReporter.start();
-          // TODO start timer for periodical result reports
           this.statusTimerHandler = window.setInterval(() => {
             const status = this.statusReporter.getStatus();
             this.notifyListeners('results', {results: status});
