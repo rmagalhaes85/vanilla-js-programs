@@ -662,6 +662,8 @@
 
       function game() {
 
+        let gameIsActive = false;
+
         function byId(id) {
           return document.getElementById(id);
         }
@@ -705,6 +707,7 @@
         configurationController.addEventListener(
           'configurationready',
           (e) => {
+            if (gameIsActive) return;
             const config = e.config;
             console.log('configurationready', config);
             const textOptions = {
@@ -719,6 +722,7 @@
             const textContent = textService.getTextByKey(textKey, textOptions);
             textBarController.displayText(textContent, config);
             textBarController.start();
+            gameIsActive = true;
           }
         );
 
@@ -733,10 +737,12 @@
         );
 
         function endgame(e) {
+          if (!gameIsActive) return;
           inputController.disable();
           configurationController.enable();
           textBarController.stop();
           resultsPanelController.stop();
+          gameIsActive = false;
         }
 
         inputController.addEventListener('endgamerequested', endgame);
