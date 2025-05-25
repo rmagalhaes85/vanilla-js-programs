@@ -1,0 +1,161 @@
+<html>
+  <header>
+    <style>
+  /*
+
+     display: flex;
+  justify-content: center;
+  align-items: center;
+
+    transform-origin: left 50%;
+    transform: rotate(0.25turn);
+
+   */
+#clock {
+  position: relative;
+  padding: 0;
+  background-color: yellow;
+  border-radius: 50%;
+  border: 1px solid black;
+  height: 15em;
+  width: 15em;
+}
+  #clock ul {
+    margin: 0;
+    padding: 0;
+  }
+  #hoursPointer {
+    position: absolute;
+    border: 2px solid red;
+    background: red;
+    height: 0.5em;
+    width: 4.5em;
+    left: 50%;
+    top: 50%;
+    transform-origin: left 50%;
+    transform: rotate(-90deg);
+  }
+  #minutesPointer {
+    position: absolute;
+    border: 2px solid blue;
+    background: blue;
+    height: 0.5em;
+    width: 6.5em;
+    left: 50%;
+    top: 50%;
+    transform-origin: left 50%;
+    transform: rotate(-90deg);
+  }
+    </style>
+  </header>
+
+  <body>
+
+    <div id="container">
+
+      <div id="config">
+        <label><input id="chkNumbers" type="checkbox" />Show numbers</label>
+        <label><input id="chkMarks" type="checkbox" />Show clock marks</label>
+      </div>
+
+      <div id="clockContainer">
+          <div id="clock">
+            <ul class="marks">
+            </ul>
+            <ul class="numbers">
+            </ul>
+            <div id="minutesPointer">&nbsp;</div>
+            <div id="hoursPointer">&nbsp;</div>
+          </div>
+
+      </div>
+
+      <div id="statistics">
+
+      </div>
+
+    </div>
+
+  </body>
+
+<script type="text/javascript">
+  let currentlyDisplayedTimeStr = "";
+  let errorMagnitudes = [];
+  let statistics = {avgErrorMag: 0};
+
+  const chkNumbers = document.getElementById("chkNumbers");
+  const chkMarks = document.getElementById("chkMarks");
+  let showNumbers = chkNumbers.checked;
+  let showMarks = chkMarks.checked;
+
+  chkNumbers.addEventListener("change", () => { showNumbers = chkNumbers.checked; });
+  chkMarks.addEventListener("change", () => { showMarks = chkMarks.checked; });
+
+  function randomTimeStr() {
+    return ("0" + Math.round(Math.random() * 12)).slice(-2)
+      + ("0" + Math.round(Math.random() * 59)).slice(-2);
+  }
+
+  function timeStrToClock(timeString) {
+    if (!timeString['match']) return;
+    const match = timeString.match(/^(\d{2})(\d{2})$/);
+    if (!match) return;
+    const h = parseInt(match[1]);
+    if (h < 0 || h > 12) return;
+    const m = parseInt(match[2]);
+    if (m > 59) return;
+    // 0 deg angles are on top, by convention
+    const mAngle = m * 6;
+    const hAngle = (h * 30 % 360) + (mAngle / 12);
+    const hAngleRad = hAngle * Math.PI / 180;
+    const mAngleRad = mAngle * Math.PI / 180;
+    return {h, m, hAngle, mAngle, hAngleRad, mAngleRad};
+  }
+
+  function displayTimeInClock(clockParams) {
+    const adjHAngle = clockParams.hAngle - 90;
+    const adjMAngle = clockParams.mAngle - 90;
+    document.getElementById('hoursPointer')
+      .setAttribute('style', `transform: rotate(${adjHAngle}deg)`);
+    document.getElementById('minutesPointer')
+      .setAttribute('style', `transform: rotate(${adjMAngle}deg)`);
+  }
+
+  function errorMagnitude(timeStrA, timeStrB) {
+    // There's probably a way more elegant way to implement this....
+    //debugger;
+    const clockA = timeStrToClock(timeStrA);
+    const clockB = timeStrToClock(timeStrB);
+    if (!clockA || !clockB) throw Error("One or more invalid time strings");
+    let errorMag = Math.abs(Math.sin(clockA.hAngleRad) - Math.sin(clockB.hAngleRad));
+    errorMag += Math.abs(Math.cos(clockA.hAngleRad) - Math.cos(clockB.hAngleRad));
+    errorMag += Math.abs(Math.sin(clockA.mAngleRad) - Math.sin(clockB.mAngleRad));
+    errorMag += Math.abs(Math.cos(clockA.mAngleRad) - Math.cos(clockB.mAngleRad));
+    return errorMag;
+  }
+
+  function reset() {
+    currentlyDisplayedTimeStr = "";
+    errorMagnitudes = [];
+    statistics = {avgErrorMag: 0};
+    render();
+  }
+
+  function render() {
+  }
+
+  function start() {
+    currentlyDisplayedTimeStr = randomTimeStr();
+  }
+
+  function registerInformedTimeStr(timeStr) {
+    const errorMag = errorMagnitude(currentlyDisplayedTimeStr, timeStr);
+    errorMagnitudes.push({errorMag});
+    statistics = {avgErrorMag: (statistics.avgErrorMag + errorMag) / 2.};
+    currentlyDisplayedTimeStr = randomTimeStr();
+    render();
+  }
+
+</script>
+
+</html>
