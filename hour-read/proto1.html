@@ -154,7 +154,7 @@ btnGo.addEventListener('click', e => {
     const absTimeA = clockA.h * 60 + clockA.m;
     const absTimeB = clockB.h * 60 + clockB.m;
     let absDiff = Math.abs(absTimeA - absTimeB);
-    const errorMinutes = absDiff > 360 ? absDiff -= 360 : absDiff;
+    const errorMinutes = Math.abs(absDiff > 360 ? absDiff -= 720 : absDiff);
     console.log(JSON.stringify({errorMinutes, clockA, clockB}));
     return errorMinutes;
   }
