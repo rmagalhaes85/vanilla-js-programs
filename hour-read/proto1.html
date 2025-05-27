@@ -26,6 +26,10 @@
   min-width: 18em;
 }
 
+#inputContainer {
+  text-align: center;
+}
+
 #statisticsContainer {
   padding: 10px;
   border: 10px outset gray;
@@ -128,7 +132,6 @@
 
       <div id="statisticsContainer">
         <h2>Statistics</h2>
-        <span>Avg error in mins:</span><span id="spnAvgError">&nbsp;</span>
         <hr>
         <table id="tblStatistics">
           <thead>
@@ -144,27 +147,28 @@
   </body>
 
 <script type="text/javascript">
+
   let currentlyDisplayedTime;
   let errorMagnitudes = [];
   let statistics = {avgErrorMag: 0};
 
-const txtInformedTime = document.getElementById("txtInformedTime");
-const btnGo = document.getElementById("btnGo");
+  const txtInformedTime = document.getElementById("txtInformedTime");
+  const btnGo = document.getElementById("btnGo");
 
-txtInformedTime.addEventListener('keypress', (e) => {
-  if (e.key === 'Enter')
-    registerInformedTimeStr(e.target.value);
-});
+  txtInformedTime.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter')
+      registerInformedTimeStr(e.target.value);
+  });
 
-btnGo.addEventListener('click', e => {
-  if (!currentlyDisplayedTime) render();
-  else registerInformedTimeStr(txtInformedTime.value);
-});
+  btnGo.addEventListener('click', e => {
+    if (!currentlyDisplayedTime) render();
+    else registerInformedTimeStr(txtInformedTime.value);
+  });
 
-btnStart.addEventListener('click', () => { start(); });
-window.addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') start();
-});
+  btnStart.addEventListener('click', () => { start(); });
+  window.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') start();
+  });
 
   function randomTimeStr() {
     return ("0" + Math.round(Math.random() * 12)).slice(-2)
@@ -185,7 +189,7 @@ window.addEventListener('keypress', (e) => {
     const hAngle = (h * 30 % 360) + (mAngle / 12);
     const hAngleRad = hAngle * Math.PI / 180;
     const mAngleRad = mAngle * Math.PI / 180;
-    return {h, m, hAngle, mAngle, hAngleRad, mAngleRad};
+    return {h, m, hAngle, mAngle, hAngleRad, mAngleRad, timeString};
   }
 
   function displayTimeInClock(clockParams) {
@@ -237,15 +241,12 @@ window.addEventListener('keypress', (e) => {
   function registerInformedTimeStr(timeStr) {
     const errorInfo = errorMagnitude(currentlyDisplayedTime, timeStrToClock(timeStr));
     const tblStatisticsBody = document.getElementById('tblStatisticsBody');
-    const spnAvgError = document.getElementById('spnAvgError');
     errorMagnitudes.push({errorInfo});
-    statistics = {avgErrorMag: (statistics.avgErrorMag + errorInfo.errorMinutes) / 2.};
-    spnAvgError.innerHTML = statistics.avgErrorMag;
     const newLine = document.createElement('tr');
     const tdActual = document.createElement('td');
-    tdActual.innerHTML = errorInfo.actualTime;
+    tdActual.innerHTML = errorInfo.actualTime.timeString;
     const tdInformed = document.createElement('td');
-    tdInformed.innerHTML = errorInfo.informedTime;
+    tdInformed.innerHTML = errorInfo.informedTime.timeString;
     const tdDiff = document.createElement('td');
     tdDiff.innerHTML = errorInfo.errorMinutes;
     newLine.appendChild(tdActual);
