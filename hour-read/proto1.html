@@ -22,11 +22,15 @@
 #clockContainer {
   padding: 10px;
   border: 10px outset red;
+  width: 35vw;
+  min-width: 18em;
 }
 
 #statisticsContainer {
   padding: 10px;
   border: 10px outset gray;
+  width: 35vw;
+  min-width: 18em;
 }
 
 #clock {
@@ -41,10 +45,12 @@
   margin-top: 10px;
   margin-bottom: 10px;
 }
+
   #clock ul {
     margin: 0;
     padding: 0;
   }
+
   #hoursPointer {
     position: absolute;
     border: 2px solid red;
@@ -56,6 +62,7 @@
     transform-origin: left 50%;
     transform: rotate(-90deg);
   }
+
   #minutesPointer {
     position: absolute;
     border: 2px solid blue;
@@ -67,6 +74,29 @@
     transform-origin: left 50%;
     transform: rotate(-90deg);
   }
+
+  #txtInformedTime {
+    display: none;
+  }
+
+  #btnGo {
+    display: none;
+  }
+
+  #btnStart {
+    width: 100%;
+  }
+
+  #tblStatistics {
+    border-collapse: collapse;
+    width: 100%;
+  }
+
+  #tblStatistics td, th {
+    border: 3px inset black;
+    padding: 5px;
+  }
+
     </style>
   </header>
 
@@ -75,6 +105,7 @@
     <div id="container">
 
       <div id="clockContainer">
+
           <div id="clock">
             <ul class="marks">
             </ul>
@@ -83,16 +114,29 @@
             <div id="minutesPointer">&nbsp;</div>
             <div id="hoursPointer">&nbsp;</div>
           </div>
+
           <div id="inputContainer">
-            <input type="text" id="txtInformedTime" placeholder="What time is it? (HHMM)"
-              maxlength="4">
+            <input type="text"
+                   id="txtInformedTime"
+                   placeholder="What time is it? (HHMM)"
+                   maxlength="4">
             <button id="btnGo">Go! (ENTER)</button>
+            <button id="btnStart">Start (ENTER)</button>
           </div>
 
       </div>
 
       <div id="statisticsContainer">
-        &nbsp;
+        <h2>Statistics</h2>
+        <span>Avg error in mins:</span><span id="spnAvgError">&nbsp;</span>
+        <hr>
+        <table id="tblStatistics">
+          <thead>
+            <tr><th>Actual</th><th>Informed</th><th>Diff</th></tr>
+          </thead>
+          <tbody id="tblStatisticsBody">
+          </tbody>
+        </table>
       </div>
 
     </div>
@@ -115,6 +159,11 @@ txtInformedTime.addEventListener('keypress', (e) => {
 btnGo.addEventListener('click', e => {
   if (!currentlyDisplayedTime) render();
   else registerInformedTimeStr(txtInformedTime.value);
+});
+
+btnStart.addEventListener('click', () => { start(); });
+window.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') start();
 });
 
   function randomTimeStr() {
@@ -148,16 +197,17 @@ btnGo.addEventListener('click', e => {
       .setAttribute('style', `transform: rotate(${adjMAngle}deg)`);
   }
 
-  function errorMagnitude(clockA, clockB) {
+  function errorMagnitude(actualTime, informedTime) {
     // There's probably a way more elegant way to implement this....
     //debugger;
-    if (!clockA || !clockB) throw Error("One or more invalid time strings");
-    const absTimeA = clockA.h * 60 + clockA.m;
-    const absTimeB = clockB.h * 60 + clockB.m;
+    if (!actualTime || !informedTime) throw Error("One or more invalid time strings");
+    const absTimeA = actualTime.h * 60 + actualTime.m;
+    const absTimeB = informedTime.h * 60 + informedTime.m;
     let absDiff = Math.abs(absTimeA - absTimeB);
     const errorMinutes = Math.abs(absDiff > 360 ? absDiff -= 720 : absDiff);
-    console.log(JSON.stringify({errorMinutes, clockA, clockB}));
-    return errorMinutes;
+    const result = { errorMinutes, actualTime, informedTime };
+    console.log(JSON.stringify(result));
+    return result;
   }
 
   function reset() {
@@ -171,12 +221,37 @@ btnGo.addEventListener('click', e => {
     currentlyDisplayedTime = timeStrToClock(randomTimeStr());
     displayTimeInClock(currentlyDisplayedTime);
     txtInformedTime.value = '';
+    txtInformedTime.focus();
+  }
+
+  function start() {
+    const txtInformedTime = document.getElementById('txtInformedTime');
+    const btnGo = document.getElementById('btnGo');
+    const btnStart = document.getElementById('btnStart');
+    txtInformedTime.style.display = "unset";
+    btnGo.style.display = "unset";
+    btnStart.style.display = "none";
+    render();
   }
 
   function registerInformedTimeStr(timeStr) {
-    const errorMag = errorMagnitude(currentlyDisplayedTime, timeStrToClock(timeStr));
-    errorMagnitudes.push({errorMag});
-    statistics = {avgErrorMag: (statistics.avgErrorMag + errorMag) / 2.};
+    const errorInfo = errorMagnitude(currentlyDisplayedTime, timeStrToClock(timeStr));
+    const tblStatisticsBody = document.getElementById('tblStatisticsBody');
+    const spnAvgError = document.getElementById('spnAvgError');
+    errorMagnitudes.push({errorInfo});
+    statistics = {avgErrorMag: (statistics.avgErrorMag + errorInfo.errorMinutes) / 2.};
+    spnAvgError.innerHTML = statistics.avgErrorMag;
+    const newLine = document.createElement('tr');
+    const tdActual = document.createElement('td');
+    tdActual.innerHTML = errorInfo.actualTime;
+    const tdInformed = document.createElement('td');
+    tdInformed.innerHTML = errorInfo.informedTime;
+    const tdDiff = document.createElement('td');
+    tdDiff.innerHTML = errorInfo.errorMinutes;
+    newLine.appendChild(tdActual);
+    newLine.appendChild(tdInformed);
+    newLine.appendChild(tdDiff);
+    tblStatisticsBody.prepend(newLine);
     render();
   }
 
