@@ -1,0 +1,43 @@
+<html>
+  <head>
+    <title>Boids 1</title>
+  </head>
+  <body>
+    <h1>Boids 1</h1>
+    <canvas id="cnv">
+    </canvas>
+  </body>
+  <script type="text/javascript">
+    (function() {
+      const numBoids = 10;
+      const numProperties = 8;
+      let currentMemoryBank = 0;
+      const tickInterval = 20;
+      const cnv = document.getElementById('cnv');
+
+      const memoryBanks = Array(2);
+      memoryBanks[0] = Array(numBoids);
+      memoryBanks[1] = Array(numBoids);
+
+      for (let i = 0; i < numBoids; ++i) {
+        memoryBanks[0][i] = Array(numProperties);
+        memoryBanks[1][i] = Array(numProperties);
+      }
+
+      simulationTick();
+
+      function simulationTick() {
+        const memBank = memoryBanks[currentMemoryBank];
+
+        currentMemoryBank ^= 1;
+        window.requestAnimationFrame(render);
+        window.setTimeout(simulationTick, tickInterval);
+      }
+
+      function render() {
+      }
+
+      console.log({memoryBanks});
+    })()
+  </script>
+</html>
