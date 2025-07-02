@@ -1,70 +1,15 @@
 <html>
   <head>
     <title>Boids 1</title>
+    <style>
+#cnv {
+  border: 1px solid black;
+}
+    </style>
   </head>
   <body>
     <h1>Boids 1</h1>
-    <canvas id="cnv">
-    </canvas>
+    <canvas id="cnv" width="200" height="200"></canvas>
   </body>
-  <script type="text/javascript">
-    (function() {
-      const numBoids = 10;
-      const numProperties = 8;
-      let currentMemoryBank = 0;
-      const tickInterval = 20;
-
-      // Property indexes
-      const PROP_X_VELOCITY = 0;
-      const PROP_Y_VELOCITY = 1;
-      const PROP_X_POSITION = 2;
-      const PROP_Y_POSITION = 3;
-      const PROP_HEADING = 4;
-
-      const cnv = document.getElementById('cnv');
-
-      const memoryBanks = Array(2);
-      memoryBanks[0] = Array(numBoids);
-      memoryBanks[1] = Array(numBoids);
-
-      for (let i = 0; i < numBoids; ++i) {
-        let b = newBoid();
-        randomizeBoidPosition(b);
-        memoryBanks[0][i] = b;
-        memoryBanks[1][i] = newBoid();
-      }
-
-      simulationTick();
-
-      function simulationTick() {
-        const memBank = memoryBanks[currentMemoryBank];
-
-        currentMemoryBank ^= 1;
-        window.requestAnimationFrame(render);
-        window.setTimeout(simulationTick, tickInterval);
-      }
-
-      function render() {
-        console.log('render')
-      }
-
-      function newBoid() {
-        let boid = Array(numProperties);
-        boid[PROP_X_VELOCITY] = 0.0;
-        boid[PROP_Y_VELOCITY] = 0.0;
-        boid[PROP_X_POSITION] = 0.0;
-        boid[PROP_Y_POSITION] = 0.0;
-        boid[PROP_HEADING] = 0.0;
-        return boid;
-      }
-
-      function randomizeBoidPosition(boid) {
-        boid[PROP_X_POSITION] = Math.random();
-        boid[PROP_Y_POSITION] = Math.random();
-      }
-
-    })();
-
-
-  </script>
+  <script src="index.js"></script>
 </html>
