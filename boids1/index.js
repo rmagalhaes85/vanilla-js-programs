@@ -1,50 +1,62 @@
 (function() {
-  const numBoids = 10;
+  const numBoids = 100;
   const numProperties = 8;
   let currentMemoryBank = 0;
-  const tickInterval = 20;
+  const tickInterval = 5;
 
   // Property indexes
-  const PROP_X_VELOCITY = 0;
-  const PROP_Y_VELOCITY = 1;
+  const PROP_VELOCITY_MAG = 0; // in normalized displacement per sec
+  const PROP_VELOCITY_ANG = 1;
   const PROP_X_POSITION = 2;
   const PROP_Y_POSITION = 3;
-  const PROP_HEADING = 4;
 
   const cnv = document.getElementById('cnv');
   if (!cnv) throw Error('No canvas');
 
-  const memoryBanks = Array(2);
-  memoryBanks[0] = Array(numBoids);
-  memoryBanks[1] = Array(numBoids);
+  const boids = Array(numBoids);
 
   for (let i = 0; i < numBoids; ++i) {
     let b = newBoid();
     randomizeBoidPosition(b);
-    memoryBanks[0][i] = b;
-    memoryBanks[1][i] = newBoid();
+    boids[i] = b;
   }
 
   simulationTick();
 
   function simulationTick() {
-    const memBank = memoryBanks[currentMemoryBank];
-
+    computeSpeeds();
+    applyDisplacements();
     window.requestAnimationFrame(render);
-    //window.setTimeout(simulationTick, tickInterval);
+    window.setTimeout(simulationTick, tickInterval);
+  }
+
+  function computeSpeeds() {
+  }
+
+  function applyDisplacements() {
+    for (let i = 0; i < numBoids; i++) {
+      const adjVelocityMag = Math.abs(boids[i][PROP_VELOCITY_MAG]) / (1000 / tickInterval);
+      const adjAng = boids[i][PROP_VELOCITY_ANG];
+      const displacementX = adjVelocityMag * Math.cos(adjAng);
+      const displacementY = adjVelocityMag * Math.sin(adjAng);
+      boids[i][PROP_X_POSITION] += displacementX;
+      boids[i][PROP_Y_POSITION] += displacementY;
+    }
   }
 
   function render() {
-    console.log('render');
-    const memBank = memoryBanks[currentMemoryBank];
-    drawBoid(memBank[0], cnv, 200, 200);
-    currentMemoryBank ^= 1;
+    const ctx = cnv.getContext('2d');
+    ctx.clearRect(0, 0, cnv.width, cnv.height);
+
+    for (let i = 0; i < numBoids; i++) {
+      drawBoid(boids[i], ctx, cnv.width, cnv.height);
+    }
   }
 
-  function drawBoid(boid, canvas, canvasW, canvasH) {
-    const ctx = canvas.getContext('2d');
+  function drawBoid(boid, ctx, canvasW, canvasH) {
     // define a set of points representing a "base" boid picture
-    let boidDrawing = [0., 0., 0.05, 0., 0.025, 0.08];
+    //let boidDrawing = [0., 0., 0.05, 0., 0.025, 0.08];
+    let boidDrawing = [0., 0., 0., 0.05, 0.08, 0.025];
     const baseBoidHeight = Math.abs(boidDrawing[5] - boidDrawing[1]);
     const baseBoidWidth = Math.abs(boidDrawing[2] - boidDrawing[0]);
     // move to the middle of view port
@@ -53,8 +65,8 @@
 
     // apply linear transformation to rotate it based on its heading angle
     //const boidDrawing = boidDrawing;
-    const cos_heading = Math.cos(boid[PROP_HEADING] * 2 * Math.PI);
-    const sin_heading = Math.sin(boid[PROP_HEADING] * 2 * Math.PI);
+    const cos_heading = Math.cos(boid[PROP_VELOCITY_ANG]);
+    const sin_heading = Math.sin(boid[PROP_VELOCITY_ANG]);
     boidDrawing = [
       (boidDrawing[0] * cos_heading) + (boidDrawing[1] * - sin_heading),
       (boidDrawing[0] * sin_heading) + (boidDrawing[1] * cos_heading),
@@ -108,18 +120,18 @@
 
   function newBoid() {
     let boid = Array(numProperties);
-    boid[PROP_X_VELOCITY] = 0.0;
-    boid[PROP_Y_VELOCITY] = 0.0;
+    boid[PROP_VELOCITY_MAG] = .0;
+    boid[PROP_VELOCITY_ANG] = .0;
     boid[PROP_X_POSITION] = 0.0;
     boid[PROP_Y_POSITION] = 0.0;
-    boid[PROP_HEADING] = 0.0;
     return boid;
   }
 
   function randomizeBoidPosition(boid) {
+    boid[PROP_VELOCITY_MAG] = Math.random() * 0.8;
+    boid[PROP_VELOCITY_ANG] = Math.random() * 2 * Math.PI;
     boid[PROP_X_POSITION] = Math.random() - 0.5;
     boid[PROP_Y_POSITION] = Math.random() - 0.5;
-    boid[PROP_HEADING] = Math.random();
   }
 
 })();
