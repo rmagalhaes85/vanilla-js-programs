@@ -1,8 +1,11 @@
 (function() {
-  const numBoids = 100;
-  const numProperties = 8;
-  let currentMemoryBank = 0;
-  const tickInterval = 5;
+  const NUM_BOIDS = 100;
+  const NUM_PROPERTIES = 8;
+  const TICK_INTERVAL = 5;
+  const MAX_VELOCITY_MAG_CHANGE = 0.5;
+  const MAX_VELOCITY_ANG_CHANGE = 0.1;
+  const MAX_VELOCITY_MAG = 3;
+  const VISUAL_RANGE = 0.15;
 
   // Property indexes
   const PROP_VELOCITY_MAG = 0; // in normalized displacement per sec
@@ -13,9 +16,9 @@
   const cnv = document.getElementById('cnv');
   if (!cnv) throw Error('No canvas');
 
-  const boids = Array(numBoids);
+  const boids = Array(NUM_BOIDS);
 
-  for (let i = 0; i < numBoids; ++i) {
+  for (let i = 0; i < NUM_BOIDS; ++i) {
     let b = newBoid();
     randomizeBoidPosition(b);
     boids[i] = b;
@@ -27,15 +30,78 @@
     computeSpeeds();
     applyDisplacements();
     window.requestAnimationFrame(render);
-    window.setTimeout(simulationTick, tickInterval);
+    window.setTimeout(simulationTick, TICK_INTERVAL);
   }
 
   function computeSpeeds() {
+    for (let i = 0; i < NUM_BOIDS; i++) {
+      // loop for identifying boids within visual range
+      let numBoidsInRange = 0;
+      let rangePositionX = 0.;
+      let rangePositionY = 0.;
+      let rangeVelocityMag = 0.;
+      let rangeVelocityAng = 0.;
+
+      for (let j = 0; j < NUM_BOIDS; j++) {
+        if (i === j) continue;
+        const absoluteDistance = computeAbsoluteDistance(
+          boids[i][PROP_X_POSITION], boids[j][PROP_X_POSITION],
+          boids[i][PROP_Y_POSITION], boids[j][PROP_Y_POSITION]
+        );
+        if (absoluteDistance > VISUAL_RANGE) continue;
+        numBoidsInRange++;
+        rangePositionX += boids[j][PROP_X_POSITION];
+        rangePositionY += boids[j][PROP_Y_POSITION];
+        rangeVelocityMag += boids[j][PROP_VELOCITY_MAG];
+        rangeVelocityAng += boids[j][PROP_VELOCITY_ANG];
+      }
+
+      if (numBoidsInRange === 0) continue;
+
+      const avgPositionX = rangePositionX / numBoidsInRange;
+      const avgPositionY = rangePositionY / numBoidsInRange;
+      const avgVelocityMag = rangeVelocityMag / numBoidsInRange;
+      const avgVelocityAng = rangeVelocityAng / numBoidsInRange;
+
+      // rule 1: separation
+
+
+      // rule 2: alignment
+      const rule2SpeedAng = computeDistanceAngle(
+        boids[i][PROP_X_POSITION], avgPositionX,
+        boids[i][PROP_Y_POSITION], avgPositionY
+      );
+
+      // rule 3: cohesion
+      const desiredPositionX = (boids[i][PROP_X_POSITION] + avgPositionX) / 2;
+      const desiredPositionY = (boids[i][PROP_Y_POSITION] + avgPositionY) / 2;
+      const distanceFromTarget = computeAbsoluteDistance(
+        boids[i][PROP_X_POSITION], desiredPositionX,
+        boids[i][PROP_Y_POSITION], desiredPositionY
+      );
+      const rule3SpeedMag = Math.max(distanceFromTarget, MAX_VELOCITY_MAG);
+      const rule3SpeedAng = computeDistanceAngle(
+        boids[i][PROP_X_POSITION], desiredPositionX,
+        boids[i][PROP_Y_POSITION], desiredPositionY
+      );
+
+      boids[i][PROP_VELOCITY_MAG] = rule3SpeedMag;
+      boids[i][PROP_VELOCITY_ANG] = rule2SpeedAng + rule3SpeedAng / 3;
+    }
+  }
+
+  function computeAbsoluteDistance(ox, oy, dx, dy) {
+    return Math.sqrt(Math.pow(ox - dx, 2) + Math.pow(oy - dy, 2));
+  }
+
+  function computeDistanceAngle(ox, oy, dx, dy) {
+    return Math.atan2(dy - oy, dx - ox);
   }
 
   function applyDisplacements() {
-    for (let i = 0; i < numBoids; i++) {
-      const adjVelocityMag = Math.abs(boids[i][PROP_VELOCITY_MAG]) / (1000 / tickInterval);
+    // TODO enforce speed and acceleration limits
+    for (let i = 0; i < NUM_BOIDS; i++) {
+      const adjVelocityMag = Math.abs(boids[i][PROP_VELOCITY_MAG]) / (1000 / TICK_INTERVAL);
       const adjAng = boids[i][PROP_VELOCITY_ANG];
       const displacementX = adjVelocityMag * Math.cos(adjAng);
       const displacementY = adjVelocityMag * Math.sin(adjAng);
@@ -48,7 +114,7 @@
     const ctx = cnv.getContext('2d');
     ctx.clearRect(0, 0, cnv.width, cnv.height);
 
-    for (let i = 0; i < numBoids; i++) {
+    for (let i = 0; i < NUM_BOIDS; i++) {
       drawBoid(boids[i], ctx, cnv.width, cnv.height);
     }
   }
@@ -119,7 +185,7 @@
   }
 
   function newBoid() {
-    let boid = Array(numProperties);
+    let boid = Array(NUM_PROPERTIES);
     boid[PROP_VELOCITY_MAG] = .0;
     boid[PROP_VELOCITY_ANG] = .0;
     boid[PROP_X_POSITION] = 0.0;
