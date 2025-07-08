@@ -1,11 +1,11 @@
 (function() {
-  const NUM_BOIDS = 100;
+  const NUM_BOIDS = 2;
   const NUM_PROPERTIES = 8;
   const TICK_INTERVAL = 5;
   const MAX_VELOCITY_MAG_CHANGE = 0.5;
   const MAX_VELOCITY_ANG_CHANGE = 0.1;
-  const MAX_VELOCITY_MAG = 3;
-  const VISUAL_RANGE = 0.15;
+  const MAX_VELOCITY_MAG = 0.8;
+  const VISUAL_RANGE = 0.45;
 
   // Property indexes
   const PROP_VELOCITY_MAG = 0; // in normalized displacement per sec
@@ -41,6 +41,7 @@
       let rangePositionY = 0.;
       let rangeVelocityMag = 0.;
       let rangeVelocityAng = 0.;
+      let wallHit = false;
 
       for (let j = 0; j < NUM_BOIDS; j++) {
         if (i === j) continue;
@@ -54,6 +55,15 @@
         rangePositionY += boids[j][PROP_Y_POSITION];
         rangeVelocityMag += boids[j][PROP_VELOCITY_MAG];
         rangeVelocityAng += boids[j][PROP_VELOCITY_ANG];
+      }
+
+      const currentX = boids[i][PROP_X_POSITION];
+      const currentY = boids[i][PROP_Y_POSITION];
+      //debugger
+      if (currentX <= -0.5 || currentX >= 0.5 || currentY <= -0.5 || currentY >= 0.5) {
+        //debugger;
+        boids[i][PROP_VELOCITY_ANG] += (Math.PI / 2);
+        wallHit |= true;
       }
 
       if (numBoidsInRange === 0) continue;
@@ -73,20 +83,28 @@
       );
 
       // rule 3: cohesion
-      const desiredPositionX = (boids[i][PROP_X_POSITION] + avgPositionX) / 2;
-      const desiredPositionY = (boids[i][PROP_Y_POSITION] + avgPositionY) / 2;
+      const desiredPositionX = avgPositionX; //(boids[i][PROP_X_POSITION] + avgPositionX) / 2;
+      const desiredPositionY = avgPositionY; //(boids[i][PROP_Y_POSITION] + avgPositionY) / 2;
       const distanceFromTarget = computeAbsoluteDistance(
         boids[i][PROP_X_POSITION], desiredPositionX,
         boids[i][PROP_Y_POSITION], desiredPositionY
       );
-      const rule3SpeedMag = Math.max(distanceFromTarget, MAX_VELOCITY_MAG);
+      //const rule3SpeedMag = Math.max(distanceFromTarget, MAX_VELOCITY_MAG);
       const rule3SpeedAng = computeDistanceAngle(
         boids[i][PROP_X_POSITION], desiredPositionX,
         boids[i][PROP_Y_POSITION], desiredPositionY
       );
 
-      boids[i][PROP_VELOCITY_MAG] = rule3SpeedMag;
-      boids[i][PROP_VELOCITY_ANG] = rule2SpeedAng + rule3SpeedAng / 3;
+      //boids[i][PROP_VELOCITY_MAG] = rule3SpeedMag;
+      if (!wallHit) {
+        const newAngle = (rule2SpeedAng + rule3SpeedAng) / 2;
+        if (Math.abs(newAngle - boids[i][PROP_VELOCITY_ANG]) > Math.PI / 2) {
+          console.log(`Boid ${i}, current angle = ${boids[i][PROP_VELOCITY_ANG]}, new angle = ${newAngle}`);
+          debugger
+        }
+        boids[i][PROP_VELOCITY_ANG] = (newAngle % (2 * Math.PI));
+      }
+
     }
   }
 
@@ -102,9 +120,11 @@
     // TODO enforce speed and acceleration limits
     for (let i = 0; i < NUM_BOIDS; i++) {
       const adjVelocityMag = Math.abs(boids[i][PROP_VELOCITY_MAG]) / (1000 / TICK_INTERVAL);
+      let displacementX = 0.;
+      let displacementY = 0.;
       const adjAng = boids[i][PROP_VELOCITY_ANG];
-      const displacementX = adjVelocityMag * Math.cos(adjAng);
-      const displacementY = adjVelocityMag * Math.sin(adjAng);
+      displacementX += adjVelocityMag * Math.cos(adjAng);
+      displacementY += adjVelocityMag * Math.sin(adjAng);
       boids[i][PROP_X_POSITION] += displacementX;
       boids[i][PROP_Y_POSITION] += displacementY;
     }
@@ -122,7 +142,7 @@
   function drawBoid(boid, ctx, canvasW, canvasH) {
     // define a set of points representing a "base" boid picture
     //let boidDrawing = [0., 0., 0.05, 0., 0.025, 0.08];
-    let boidDrawing = [0., 0., 0., 0.05, 0.08, 0.025];
+    let boidDrawing = [0., 0., 0., 0.025, 0.04, 0.0125];
     const baseBoidHeight = Math.abs(boidDrawing[5] - boidDrawing[1]);
     const baseBoidWidth = Math.abs(boidDrawing[2] - boidDrawing[0]);
     // move to the middle of view port
@@ -194,7 +214,7 @@
   }
 
   function randomizeBoidPosition(boid) {
-    boid[PROP_VELOCITY_MAG] = Math.random() * 0.8;
+    boid[PROP_VELOCITY_MAG] = Math.random() * 0.5 + 0.3;
     boid[PROP_VELOCITY_ANG] = Math.random() * 2 * Math.PI;
     boid[PROP_X_POSITION] = Math.random() - 0.5;
     boid[PROP_Y_POSITION] = Math.random() - 0.5;
