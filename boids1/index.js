@@ -8,10 +8,10 @@
   const VISUAL_RANGE = 0.45;
 
   // Property indexes
-  const PROP_VELOCITY_MAG = 0; // in normalized displacement per sec
-  const PROP_VELOCITY_ANG = 1;
-  const PROP_X_POSITION = 2;
-  const PROP_Y_POSITION = 3;
+  const PROP_X_POSITION = 0;
+  const PROP_Y_POSITION = 1;
+  const PROP_VELOCITY_MAG = 2; // in normalized displacement per sec
+  const PROP_VELOCITY_ANG = 3;
   const PROP_OUT_OF_AREA = 4;
 
   const cnv = document.getElementById('cnv');
@@ -25,7 +25,8 @@
     boids[i] = b;
   }
 
-  simulationTick();
+  //simulationTick();
+  runTests();
 
   function simulationTick() {
     computeSpeeds();
@@ -34,19 +35,52 @@
     window.setTimeout(simulationTick, TICK_INTERVAL);
   }
 
+  function computeAverages(boids, i, visibleRadius) {
+    const numBoids = boids.length;
+    if (numBoids < 2) throw new Error('Two boids are the minimum');
+
+    let numBoidsInRange = 0;
+    let rangePositionX = 0.;
+    let rangePositionY = 0.;
+    let rangeVelocityX = 0.;
+    let rangeVelocityY = 0.;
+
+    for (let j = 0; j < numBoids; j++) {
+      const absoluteDistance = (i === j) ? 0. : computeAbsoluteDistance(
+        boids[i][PROP_X_POSITION], boids[j][PROP_X_POSITION],
+        boids[i][PROP_Y_POSITION], boids[j][PROP_Y_POSITION]
+      );
+      if (absoluteDistance > visibleRadius) continue;
+      numBoidsInRange++;
+      rangePositionX += boids[j][PROP_X_POSITION];
+      rangePositionY += boids[j][PROP_Y_POSITION];
+      rangeVelocityX += boids[j][PROP_VELOCITY_MAG] * Math.cos(boids[j][PROP_VELOCITY_ANG]);
+      rangeVelocityY += boids[j][PROP_VELOCITY_MAG] * Math.sin(boids[j][PROP_VELOCITY_ANG]);
+    }
+
+    if (numBoidsInRange === 0)
+      throw new Error('At least the current boid should be in its own visible range');
+
+    const avgPositionX = rangePositionX / numBoidsInRange;
+    const avgPositionY = rangePositionY / numBoidsInRange;
+    const avgVelocityMag = computeAbsoluteDistance(0, 0, rangeVelocityX, rangeVelocityY) / numBoidsInRange;
+    const avgVelocityAng = computeDistanceAngle(0, 0, rangeVelocityX, rangeVelocityY);
+
+    return { numBoidsInRange, avgPositionX, avgPositionY, avgVelocityMag, avgVelocityAng };
+  }
+
   function computeSpeeds() {
     for (let i = 0; i < NUM_BOIDS; i++) {
       // loop for identifying boids within visual range
       let numBoidsInRange = 0;
       let rangePositionX = 0.;
       let rangePositionY = 0.;
-      let rangeVelocityMag = 0.;
-      let rangeVelocityAng = 0.;
+      let rangeVelocityX = 0.;
+      let rangeVelocityY = 0.;
       let wallHit = false;
 
       for (let j = 0; j < NUM_BOIDS; j++) {
-        if (i === j) continue;
-        const absoluteDistance = computeAbsoluteDistance(
+        const absoluteDistance = (i === j) ? 0. : computeAbsoluteDistance(
           boids[i][PROP_X_POSITION], boids[j][PROP_X_POSITION],
           boids[i][PROP_Y_POSITION], boids[j][PROP_Y_POSITION]
         );
@@ -54,8 +88,8 @@
         numBoidsInRange++;
         rangePositionX += boids[j][PROP_X_POSITION];
         rangePositionY += boids[j][PROP_Y_POSITION];
-        rangeVelocityMag += boids[j][PROP_VELOCITY_MAG];
-        rangeVelocityAng += boids[j][PROP_VELOCITY_ANG];
+        rangeVelocityX += boids[j][PROP_VELOCITY_MAG] * Math.cos(boids[j][PROP_VELOCITY_ANG]);
+        rangeVelocityY += boids[j][PROP_VELOCITY_MAG] * Math.sin(boids[j][PROP_VELOCITY_ANG]);
       }
 
       const currentX = boids[i][PROP_X_POSITION];
@@ -81,8 +115,8 @@
 
       const avgPositionX = rangePositionX / numBoidsInRange;
       const avgPositionY = rangePositionY / numBoidsInRange;
-      const avgVelocityMag = rangeVelocityMag / numBoidsInRange;
-      const avgVelocityAng = rangeVelocityAng / numBoidsInRange;
+      const avgVelocityMag = computeAbsoluteDistance(0, 0, rangeVelocityX, rangeVelocityY) / numBoidsInRange;
+      const avgVelocityAng = computeDistanceAngle(0, 0, rangeVelocityX, rangeVelocityY);
 
       // rule 1: separation
 
@@ -230,6 +264,36 @@
     boid[PROP_VELOCITY_ANG] = Math.random() * 2 * Math.PI;
     boid[PROP_X_POSITION] = Math.random() - 0.5;
     boid[PROP_Y_POSITION] = Math.random() - 0.5;
+  }
+
+  function runTests() {
+    // function computeAverages(boids, i, visibleRadius) {
+    console.log(computeAverages(
+      [
+        [ -0.1, 0., 0.1, 0.],
+        [ 0.1, 0. , 0.1, 0.]
+      ],
+      0, 0.5));
+    console.log(computeAverages(
+      [
+        [ -0.2, 0., 0.1, 0.],
+        [ 0.0, 0. , 0.1, 0.]
+      ],
+      0, 0.5));
+    console.log(computeAverages(
+      [
+        [ -0.1, 0., 0.1, 0.],
+        [ 0.1, 0. , 0.1, Math.PI / 2]
+      ],
+      0, 0.5));
+    console.log(computeAverages(
+      [
+        [ -0.1, 0., 0.1, 0.],
+        [ -0.1, 0., 0.1, 0.],
+        [ 0.1, 0. , 0.1, Math.PI / 2],
+        [ 0.1, 0. , 0.1, Math.PI / 2]
+      ],
+      0, 0.5));
   }
 
 })();
