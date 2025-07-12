@@ -1,7 +1,7 @@
 (function() {
   const NUM_BOIDS = 2;
   const NUM_PROPERTIES = 8;
-  const TICK_INTERVAL = 5;
+  const TICK_INTERVAL = 100;
   const MAX_VELOCITY_MAG_CHANGE = 0.5;
   const MAX_VELOCITY_ANG_CHANGE = 0.1;
   const MAX_VELOCITY_MAG = 0.8;
@@ -12,6 +12,7 @@
   const PROP_VELOCITY_ANG = 1;
   const PROP_X_POSITION = 2;
   const PROP_Y_POSITION = 3;
+  const PROP_OUT_OF_AREA = 4;
 
   const cnv = document.getElementById('cnv');
   if (!cnv) throw Error('No canvas');
@@ -61,9 +62,19 @@
       const currentY = boids[i][PROP_Y_POSITION];
       //debugger
       if (currentX <= -0.5 || currentX >= 0.5 || currentY <= -0.5 || currentY >= 0.5) {
-        //debugger;
-        boids[i][PROP_VELOCITY_ANG] += (Math.PI / 2);
-        wallHit |= true;
+        debugger;
+        if (!boids[i][PROP_OUT_OF_AREA]) {
+          boids[i][PROP_OUT_OF_AREA] = true;
+          boids[i][PROP_VELOCITY_ANG] += ((Math.PI + 0.01) / 2);
+          boids[i][PROP_VELOCITY_ANG] %= (Math.PI * 2);
+          wallHit |= true;
+        }
+      } else {
+        boids[i][PROP_OUT_OF_AREA] = false;
+      }
+
+      if (currentX <= -0.51 || currentX >= 0.51 || currentY <= -0.51 || currentY >= 0.51) {
+        debugger
       }
 
       if (numBoidsInRange === 0) continue;
@@ -96,12 +107,12 @@
       );
 
       //boids[i][PROP_VELOCITY_MAG] = rule3SpeedMag;
-      if (!wallHit) {
+      if (!boids[i][PROP_OUT_OF_AREA]) {
         const newAngle = (rule2SpeedAng + rule3SpeedAng) / 2;
-        if (Math.abs(newAngle - boids[i][PROP_VELOCITY_ANG]) > Math.PI / 2) {
-          console.log(`Boid ${i}, current angle = ${boids[i][PROP_VELOCITY_ANG]}, new angle = ${newAngle}`);
-          debugger
-        }
+        //if (Math.abs(newAngle - boids[i][PROP_VELOCITY_ANG]) > Math.PI / 2) {
+        //  console.log(`Boid ${i}, current angle = ${boids[i][PROP_VELOCITY_ANG]}, new angle = ${newAngle}`);
+        //  //debugger
+        //}
         boids[i][PROP_VELOCITY_ANG] = (newAngle % (2 * Math.PI));
       }
 
@@ -210,6 +221,7 @@
     boid[PROP_VELOCITY_ANG] = .0;
     boid[PROP_X_POSITION] = 0.0;
     boid[PROP_Y_POSITION] = 0.0;
+    boid[PROP_OUT_OF_AREA] = false;
     return boid;
   }
 
