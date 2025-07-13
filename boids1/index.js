@@ -1,12 +1,13 @@
 (function() {
-  const NUM_BOIDS = 2;
+  const NUM_BOIDS = 50;
   const NUM_PROPERTIES = 8;
-  const TICK_INTERVAL = 100;
+  const TICK_INTERVAL = 10;
   const MAX_VELOCITY_MAG_CHANGE = 0.5;
   const MAX_VELOCITY_ANG_CHANGE = 0.1;
   const MAX_VELOCITY_MAG = 0.8;
   const VISUAL_RANGE = 0.45;
   const ZERO_THRESHOLD = 1e-10;
+  const MAX_ITERATIONS = -1;
 
   // Property indexes
   const PROP_X_POSITION = 0;
@@ -23,17 +24,22 @@
   for (let i = 0; i < NUM_BOIDS; ++i) {
     let b = newBoid();
     randomizeBoidPosition(b);
+    //b[PROP_X_POSITION] += i * 0.1 - 0.2;
+    //b[PROP_Y_POSITION] += i * 0.1 - 0.4;
+    //b[PROP_VELOCITY_MAG] = 0.1;
+    //b[PROP_VELOCITY_ANG] = 0;
     boids[i] = b;
   }
 
-  //simulationTick();
-  runTests();
+  simulationTick(0);
+  //runTests();
 
-  function simulationTick() {
+  function simulationTick(iteration) {
     computeSpeeds();
     applyDisplacements();
     window.requestAnimationFrame(render);
-    window.setTimeout(simulationTick, TICK_INTERVAL);
+    if (MAX_ITERATIONS < 0 || ++iteration < MAX_ITERATIONS)
+      window.setTimeout(function() { simulationTick(iteration) }, TICK_INTERVAL);
   }
 
   function computeAverages(boids, i, visibleRadius) {
@@ -48,8 +54,8 @@
 
     for (let j = 0; j < numBoids; j++) {
       const absoluteDistance = (i === j) ? 0. : computeAbsoluteDistance(
-        boids[i][PROP_X_POSITION], boids[j][PROP_X_POSITION],
-        boids[i][PROP_Y_POSITION], boids[j][PROP_Y_POSITION]
+        boids[i][PROP_X_POSITION], boids[i][PROP_Y_POSITION],
+        boids[j][PROP_X_POSITION], boids[j][PROP_Y_POSITION]
       );
       if (absoluteDistance > visibleRadius) continue;
       numBoidsInRange++;
@@ -76,73 +82,36 @@
 
   function computeSpeeds() {
     for (let i = 0; i < NUM_BOIDS; i++) {
-      // loop for identifying boids within visual range
-      let numBoidsInRange = 0;
-      let rangePositionX = 0.;
-      let rangePositionY = 0.;
-      let rangeVelocityX = 0.;
-      let rangeVelocityY = 0.;
-      let wallHit = false;
 
-      for (let j = 0; j < NUM_BOIDS; j++) {
-        const absoluteDistance = (i === j) ? 0. : computeAbsoluteDistance(
-          boids[i][PROP_X_POSITION], boids[j][PROP_X_POSITION],
-          boids[i][PROP_Y_POSITION], boids[j][PROP_Y_POSITION]
-        );
-        if (absoluteDistance > VISUAL_RANGE) continue;
-        numBoidsInRange++;
-        rangePositionX += boids[j][PROP_X_POSITION];
-        rangePositionY += boids[j][PROP_Y_POSITION];
-        rangeVelocityX += boids[j][PROP_VELOCITY_MAG] * Math.cos(boids[j][PROP_VELOCITY_ANG]);
-        rangeVelocityY += boids[j][PROP_VELOCITY_MAG] * Math.sin(boids[j][PROP_VELOCITY_ANG]);
-      }
+      const {
+        avgPositionX,
+        avgPositionY,
+        avgVelocityMag,
+        avgVelocityAng
+      } = computeAverages(boids, i, VISUAL_RANGE);
 
-      const currentX = boids[i][PROP_X_POSITION];
-      const currentY = boids[i][PROP_Y_POSITION];
-      //debugger
-      if (currentX <= -0.5 || currentX >= 0.5 || currentY <= -0.5 || currentY >= 0.5) {
-        debugger;
-        if (!boids[i][PROP_OUT_OF_AREA]) {
-          boids[i][PROP_OUT_OF_AREA] = true;
-          boids[i][PROP_VELOCITY_ANG] += ((Math.PI + 0.01) / 2);
-          boids[i][PROP_VELOCITY_ANG] %= (Math.PI * 2);
-          wallHit |= true;
-        }
-      } else {
-        boids[i][PROP_OUT_OF_AREA] = false;
-      }
-
-      if (currentX <= -0.51 || currentX >= 0.51 || currentY <= -0.51 || currentY >= 0.51) {
-        debugger
-      }
-
-      if (numBoidsInRange === 0) continue;
-
-      const avgPositionX = rangePositionX / numBoidsInRange;
-      const avgPositionY = rangePositionY / numBoidsInRange;
-      const avgVelocityMag = computeAbsoluteDistance(0, 0, rangeVelocityX, rangeVelocityY) / numBoidsInRange;
-      const avgVelocityAng = computeDistanceAngle(0, 0, rangeVelocityX, rangeVelocityY);
-
+      const boidXPosition = boids[i][PROP_X_POSITION];
+      const boidYPosition = boids[i][PROP_Y_POSITION];
       // rule 1: separation
 
 
       // rule 2: alignment
       const rule2SpeedAng = computeDistanceAngle(
-        boids[i][PROP_X_POSITION], avgPositionX,
-        boids[i][PROP_Y_POSITION], avgPositionY
+        boidXPosition, boidYPosition,
+        avgPositionX, avgPositionY
       );
 
       // rule 3: cohesion
-      const desiredPositionX = avgPositionX; //(boids[i][PROP_X_POSITION] + avgPositionX) / 2;
-      const desiredPositionY = avgPositionY; //(boids[i][PROP_Y_POSITION] + avgPositionY) / 2;
+      const desiredPositionX = avgPositionX; //(boidXPosition + avgPositionX) / 2;
+      const desiredPositionY = avgPositionY; //(boidYPosition + avgPositionY) / 2;
       const distanceFromTarget = computeAbsoluteDistance(
-        boids[i][PROP_X_POSITION], desiredPositionX,
-        boids[i][PROP_Y_POSITION], desiredPositionY
+        boidXPosition, boidYPosition,
+        desiredPositionX, desiredPositionY
       );
       //const rule3SpeedMag = Math.max(distanceFromTarget, MAX_VELOCITY_MAG);
       const rule3SpeedAng = computeDistanceAngle(
-        boids[i][PROP_X_POSITION], desiredPositionX,
-        boids[i][PROP_Y_POSITION], desiredPositionY
+        boidXPosition, boidYPosition,
+        desiredPositionX, desiredPositionY
       );
 
       //boids[i][PROP_VELOCITY_MAG] = rule3SpeedMag;
@@ -154,6 +123,7 @@
         //}
         boids[i][PROP_VELOCITY_ANG] = (newAngle % (2 * Math.PI));
       }
+      console.log(`boid ${i}, angle: ${boids[i][PROP_VELOCITY_ANG]}, rule2SpeedAng: ${rule2SpeedAng}, rule3SpeedAng: ${rule3SpeedAng}`);
 
     }
   }
