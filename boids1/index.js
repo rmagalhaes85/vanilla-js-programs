@@ -6,6 +6,7 @@
   const MAX_VELOCITY_ANG_CHANGE = 0.1;
   const MAX_VELOCITY_MAG = 0.8;
   const VISUAL_RANGE = 0.45;
+  const ZERO_THRESHOLD = 1e-10;
 
   // Property indexes
   const PROP_X_POSITION = 0;
@@ -54,8 +55,12 @@
       numBoidsInRange++;
       rangePositionX += boids[j][PROP_X_POSITION];
       rangePositionY += boids[j][PROP_Y_POSITION];
-      rangeVelocityX += boids[j][PROP_VELOCITY_MAG] * Math.cos(boids[j][PROP_VELOCITY_ANG]);
-      rangeVelocityY += boids[j][PROP_VELOCITY_MAG] * Math.sin(boids[j][PROP_VELOCITY_ANG]);
+      let thisVelMag = boids[j][PROP_VELOCITY_MAG] * Math.cos(boids[j][PROP_VELOCITY_ANG]);
+      let thisVelAng = boids[j][PROP_VELOCITY_MAG] * Math.sin(boids[j][PROP_VELOCITY_ANG]);
+      thisVelMag = (Math.abs(thisVelMag) <= ZERO_THRESHOLD) ? 0. : thisVelMag;
+      thisVelAng = (Math.abs(thisVelAng) <= ZERO_THRESHOLD) ? 0. : thisVelAng;
+      rangeVelocityX += thisVelMag;
+      rangeVelocityY += thisVelAng;
     }
 
     if (numBoidsInRange === 0)
@@ -292,6 +297,13 @@
         [ -0.1, 0., 0.1, 0.],
         [ 0.1, 0. , 0.1, Math.PI / 2],
         [ 0.1, 0. , 0.1, Math.PI / 2]
+      ],
+      0, 0.5));
+    //debugger;
+    console.log(computeAverages(
+      [
+        [ -0.2, 0., 0.1, 0.],
+        [ 0.0, 0. , 0.1, Math.PI]
       ],
       0, 0.5));
   }
