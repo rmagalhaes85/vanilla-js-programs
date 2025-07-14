@@ -1,11 +1,13 @@
 (function() {
-  const NUM_BOIDS = 50;
+  const NUM_BOIDS = 10;
   const NUM_PROPERTIES = 8;
   const TICK_INTERVAL = 10;
   const MAX_VELOCITY_MAG_CHANGE = 0.5;
-  const MAX_VELOCITY_ANG_CHANGE = 0.1;
-  const MAX_VELOCITY_MAG = 0.8;
+  const MAX_VELOCITY_ANG_CHANGE = Math.PI / 2;
+  const MAX_VELOCITY_MAG = 10;
+  const MIN_VELOCITY_MAG = 0.25;
   const VISUAL_RANGE = 0.45;
+  const COLISION_RANGE = 0.01;
   const ZERO_THRESHOLD = 1e-10;
   const MAX_ITERATIONS = -1;
 
@@ -42,7 +44,7 @@
       window.setTimeout(function() { simulationTick(iteration) }, TICK_INTERVAL);
   }
 
-  function computeAverages(boids, i, visibleRadius) {
+  function computeAverages(boids, i, visibleRadius, collisionRadius) {
     const numBoids = boids.length;
     if (numBoids < 2) throw new Error('Two boids are the minimum');
 
@@ -52,12 +54,20 @@
     let rangeVelocityX = 0.;
     let rangeVelocityY = 0.;
 
+    const boidXPosition = boids[i][PROP_X_POSITION];
+    const boidYPosition = boids[i][PROP_Y_POSITION];
+
+    let collisionAvoidanceX = undefined;
+    let collisionAvoidanceY = undefined;
+
     for (let j = 0; j < numBoids; j++) {
       const absoluteDistance = (i === j) ? 0. : computeAbsoluteDistance(
-        boids[i][PROP_X_POSITION], boids[i][PROP_Y_POSITION],
+        boidXPosition, boidYPosition,
         boids[j][PROP_X_POSITION], boids[j][PROP_Y_POSITION]
       );
+
       if (absoluteDistance > visibleRadius) continue;
+
       numBoidsInRange++;
       rangePositionX += boids[j][PROP_X_POSITION];
       rangePositionY += boids[j][PROP_Y_POSITION];
@@ -67,6 +77,15 @@
       thisVelAng = (Math.abs(thisVelAng) <= ZERO_THRESHOLD) ? 0. : thisVelAng;
       rangeVelocityX += thisVelMag;
       rangeVelocityY += thisVelAng;
+
+      if (absoluteDistance > collisionRadius) continue;
+      if (i === j) continue;
+
+      if (collisionAvoidanceX === undefined) collisionAvoidanceX = boidXPosition;
+      if (collisionAvoidanceY === undefined) collisionAvoidanceY = boidYPosition;
+
+      collisionAvoidanceX += (collisionAvoidanceX - boids[j][PROP_X_POSITION]);
+      collisionAvoidanceY += (collisionAvoidanceY - boids[j][PROP_Y_POSITION]);
     }
 
     if (numBoidsInRange === 0)
@@ -77,7 +96,8 @@
     const avgVelocityMag = computeAbsoluteDistance(0, 0, rangeVelocityX, rangeVelocityY) / numBoidsInRange;
     const avgVelocityAng = computeDistanceAngle(0, 0, rangeVelocityX, rangeVelocityY);
 
-    return { numBoidsInRange, avgPositionX, avgPositionY, avgVelocityMag, avgVelocityAng };
+    return { numBoidsInRange, avgPositionX, avgPositionY, avgVelocityMag, avgVelocityAng,
+      collisionAvoidanceX, collisionAvoidanceY };
   }
 
   function computeSpeeds() {
@@ -87,13 +107,26 @@
         avgPositionX,
         avgPositionY,
         avgVelocityMag,
-        avgVelocityAng
-      } = computeAverages(boids, i, VISUAL_RANGE);
+        avgVelocityAng,
+        collisionAvoidanceX,
+        collisionAvoidanceY
+      } = computeAverages(boids, i, VISUAL_RANGE, COLISION_RANGE);
 
       const boidXPosition = boids[i][PROP_X_POSITION];
       const boidYPosition = boids[i][PROP_Y_POSITION];
+      let rule1SpeedMag, rule1SpeedAng;
       // rule 1: separation
-
+      if (collisionAvoidanceX !== undefined && collisionAvoidanceY !== undefined) {
+        const distanceFromTarget = computeAbsoluteDistance(
+          boidXPosition, boidYPosition,
+          collisionAvoidanceX, collisionAvoidanceY
+        );
+        rule1SpeedMag = Math.max(MIN_VELOCITY_MAG, Math.min(distanceFromTarget, MAX_VELOCITY_MAG));
+        rule1SpeedAng = computeDistanceAngle(
+          boidXPosition, boidYPosition,
+          collisionAvoidanceX, collisionAvoidanceY
+        );
+      }
 
       // rule 2: alignment
       const rule2SpeedAng = computeDistanceAngle(
@@ -108,6 +141,7 @@
         boidXPosition, boidYPosition,
         desiredPositionX, desiredPositionY
       );
+      const rule3SpeedMag = Math.max(MIN_VELOCITY_MAG, Math.min(distanceFromTarget, MAX_VELOCITY_MAG));
       //const rule3SpeedMag = Math.max(distanceFromTarget, MAX_VELOCITY_MAG);
       const rule3SpeedAng = computeDistanceAngle(
         boidXPosition, boidYPosition,
@@ -116,14 +150,21 @@
 
       //boids[i][PROP_VELOCITY_MAG] = rule3SpeedMag;
       if (!boids[i][PROP_OUT_OF_AREA]) {
-        const newAngle = (rule2SpeedAng + rule3SpeedAng) / 2;
+        let newAngle, newSpeed;
+
+        if (rule1SpeedMag !== undefined && rule1SpeedAng !== undefined) {
+          console.log('rule1SpeedMag', rule1SpeedMag, 'rule1SpeedAng', rule1SpeedAng); newAngle = rule1SpeedAng; newSpeed = rule1SpeedMag; } else { newAngle = (rule2SpeedAng + rule3SpeedAng) / 2; newSpeed = rule3SpeedMag; }
         //if (Math.abs(newAngle - boids[i][PROP_VELOCITY_ANG]) > Math.PI / 2) {
         //  console.log(`Boid ${i}, current angle = ${boids[i][PROP_VELOCITY_ANG]}, new angle = ${newAngle}`);
         //  //debugger
         //}
-        boids[i][PROP_VELOCITY_ANG] = (newAngle % (2 * Math.PI));
+
+        newAngle %= (2 * Math.PI);
+        if (newAngle < -MAX_VELOCITY_ANG_CHANGE) newAngle = -MAX_VELOCITY_ANG_CHANGE;
+        if (newAngle > MAX_VELOCITY_ANG_CHANGE) newAngle = MAX_VELOCITY_ANG_CHANGE;
+        boids[i][PROP_VELOCITY_ANG] = newAngle;
+        boids[i][PROP_VELOCITY_MAG] = newSpeed;
       }
-      console.log(`boid ${i}, angle: ${boids[i][PROP_VELOCITY_ANG]}, rule2SpeedAng: ${rule2SpeedAng}, rule3SpeedAng: ${rule3SpeedAng}`);
 
     }
   }
