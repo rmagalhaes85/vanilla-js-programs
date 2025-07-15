@@ -1,12 +1,12 @@
 (function() {
-  const NUM_BOIDS = 10;
+  const NUM_BOIDS = 2;
   const NUM_PROPERTIES = 8;
   const TICK_INTERVAL = 10;
   const MAX_VELOCITY_MAG_CHANGE = 0.5;
   const MAX_VELOCITY_ANG_CHANGE = Math.PI / 2;
   const MAX_VELOCITY_MAG = 10;
   const MIN_VELOCITY_MAG = 0.25;
-  const VISUAL_RANGE = 0.45;
+  const VISUAL_RANGE = 0.15;
   const COLISION_RANGE = 0.01;
   const ZERO_THRESHOLD = 1e-10;
   const MAX_ITERATIONS = -1;
@@ -23,17 +23,40 @@
 
   const boids = Array(NUM_BOIDS);
 
-  for (let i = 0; i < NUM_BOIDS; ++i) {
-    let b = newBoid();
-    randomizeBoidPosition(b);
-    //b[PROP_X_POSITION] += i * 0.1 - 0.2;
-    //b[PROP_Y_POSITION] += i * 0.1 - 0.4;
-    //b[PROP_VELOCITY_MAG] = 0.1;
-    //b[PROP_VELOCITY_ANG] = 0;
-    boids[i] = b;
+  //regularSimulation();
+  collisionOf2();
+
+  function regularSimulation() {
+    for (let i = 0; i < NUM_BOIDS; ++i) {
+      let b = newBoid();
+      randomizeBoidPosition(b);
+      //b[PROP_X_POSITION] += i * 0.1 - 0.2;
+      //b[PROP_Y_POSITION] += i * 0.1 - 0.4;
+      //b[PROP_VELOCITY_MAG] = 0.1;
+      //b[PROP_VELOCITY_ANG] = 0;
+      boids[i] = b;
+    }
+
+    simulationTick(0);
   }
 
-  simulationTick(0);
+  function collisionOf2() {
+    let b = newBoid();
+    b[PROP_X_POSITION] = .35;
+    b[PROP_Y_POSITION] = .0;
+    b[PROP_VELOCITY_MAG] = .1;
+    b[PROP_VELOCITY_ANG] = Math.PI;
+    boids[0] = b;
+    b = newBoid();
+    b[PROP_X_POSITION] = -.35;
+    b[PROP_Y_POSITION] = .0;
+    b[PROP_VELOCITY_MAG] = .1;
+    b[PROP_VELOCITY_ANG] = .0;
+    boids[1] = b;
+
+    simulationTick(0);
+  }
+
   //runTests();
 
   function simulationTick(iteration) {
@@ -56,6 +79,8 @@
 
     const boidXPosition = boids[i][PROP_X_POSITION];
     const boidYPosition = boids[i][PROP_Y_POSITION];
+    const boidVelocityMag = boids[i][PROP_VELOCITY_MAG];
+    const boidVelocityAng = boids[i][PROP_VELOCITY_ANG];
 
     let collisionAvoidanceX = undefined;
     let collisionAvoidanceY = undefined;
@@ -84,8 +109,8 @@
       if (collisionAvoidanceX === undefined) collisionAvoidanceX = boidXPosition;
       if (collisionAvoidanceY === undefined) collisionAvoidanceY = boidYPosition;
 
-      collisionAvoidanceX += (collisionAvoidanceX - boids[j][PROP_X_POSITION]);
-      collisionAvoidanceY += (collisionAvoidanceY - boids[j][PROP_Y_POSITION]);
+      collisionAvoidanceX += (collisionAvoidanceX - boids[j][PROP_X_POSITION]) * 3;
+      collisionAvoidanceY += (collisionAvoidanceY - boids[j][PROP_Y_POSITION]) * 3;
     }
 
     if (numBoidsInRange === 0)
@@ -93,8 +118,8 @@
 
     const avgPositionX = rangePositionX / numBoidsInRange;
     const avgPositionY = rangePositionY / numBoidsInRange;
-    const avgVelocityMag = computeAbsoluteDistance(0, 0, rangeVelocityX, rangeVelocityY) / numBoidsInRange;
-    const avgVelocityAng = computeDistanceAngle(0, 0, rangeVelocityX, rangeVelocityY);
+    const avgVelocityMag = numBoidsInRange === 1 ? boidVelocityMag : computeAbsoluteDistance(0, 0, rangeVelocityX, rangeVelocityY) / numBoidsInRange;
+    const avgVelocityAng = numBoidsInRange === 1 ? boidVelocityAng : computeDistanceAngle(0, 0, rangeVelocityX, rangeVelocityY);
 
     return { numBoidsInRange, avgPositionX, avgPositionY, avgVelocityMag, avgVelocityAng,
       collisionAvoidanceX, collisionAvoidanceY };
@@ -104,6 +129,7 @@
     for (let i = 0; i < NUM_BOIDS; i++) {
 
       const {
+        numBoidsInRange,
         avgPositionX,
         avgPositionY,
         avgVelocityMag,
@@ -112,16 +138,21 @@
         collisionAvoidanceY
       } = computeAverages(boids, i, VISUAL_RANGE, COLISION_RANGE);
 
+      // if the boid is alone, don't adjust course (this will change in a near future when
+      // we start detecting screen borders
+      if (numBoidsInRange === 1) continue;
+
       const boidXPosition = boids[i][PROP_X_POSITION];
       const boidYPosition = boids[i][PROP_Y_POSITION];
       let rule1SpeedMag, rule1SpeedAng;
       // rule 1: separation
       if (collisionAvoidanceX !== undefined && collisionAvoidanceY !== undefined) {
+        debugger;
         const distanceFromTarget = computeAbsoluteDistance(
           boidXPosition, boidYPosition,
           collisionAvoidanceX, collisionAvoidanceY
         );
-        rule1SpeedMag = Math.max(MIN_VELOCITY_MAG, Math.min(distanceFromTarget, MAX_VELOCITY_MAG));
+        rule1SpeedMag = Math.min(MIN_VELOCITY_MAG, Math.min(distanceFromTarget, MAX_VELOCITY_MAG));
         rule1SpeedAng = computeDistanceAngle(
           boidXPosition, boidYPosition,
           collisionAvoidanceX, collisionAvoidanceY
