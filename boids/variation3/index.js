@@ -84,6 +84,34 @@ const BASE_BOID_POINTS = [0., 0., 0., 0.025, 0.04, 0.0125];
       },
     };
   }
+
+  // RULE4: STAY WITHIN BOUNDS
+  function rule4(sim, distance, referenceBoid) {
+    let applied = false;
+    let moveDx = 0;
+    let moveDy = 0;
+    const canvasW = sim.canvasDimensions.x;
+    const canvasH = sim.canvasDimensions.y;
+    if (referenceBoid.x * canvasW > canvasW - sim.marginPx ||
+        referenceBoid.x * canvasW < sim.marginPx ) {
+      applied |= true;
+      moveDx = referenceBoid.dx * -1;
+    }
+    if (referenceBoid.y * canvasH > canvasH - sim.marginPx ||
+        referenceBoid.y * canvasH < sim.marginPx ) {
+      applied |= true;
+      moveDy = referenceBoid.dy * -1;
+    }
+    return {
+      applied: applied ? 1 : 0,
+      move: {
+        dx: moveDx,
+        dy: moveDy,
+      }
+    };
+  }
+
+
   // =====================================================================================
 
   // planMovements basic algorithm
@@ -153,6 +181,12 @@ const BASE_BOID_POINTS = [0., 0., 0., 0.025, 0.04, 0.0125];
         const correction = sim.maxVelocityMagnitude / velMagnitude;
         referenceBoid.dx *= correction;
         referenceBoid.dy *= correction;
+      }
+
+      const { applied: rule4Applied, move: rule4Move } = rule4(sim, undefined, referenceBoid);
+      if (rule4Applied) {
+        referenceBoid.dx = rule4Move.dx;
+        referenceBoid.dy = rule4Move.dy;
       }
 
       const newVelMagnitude = computeVelocityMagnitude(referenceBoid.dx, referenceBoid.dy);
