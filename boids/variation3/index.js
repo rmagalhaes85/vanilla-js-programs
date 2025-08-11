@@ -161,17 +161,11 @@ const BASE_BOID_POINTS = [0., 0., 0., 0.025, 0.04, 0.0125];
       const previousDx = referenceBoid.dx;
       const previousDy = referenceBoid.dy;
 
-      if (Math.abs(totalRule1Move.dx) > EPSILON || Math.abs(totalRule1Move.dy) > EPSILON) {
-        // rule 1 has authority over the other rules, so that we avoid collisions.
-        referenceBoid.dx = totalRule1Move.dx;
-        referenceBoid.dy = totalRule1Move.dy;
-      } else {
-        // if rule 1 generated no displacements, the other rules are allowed to affect the
-        // reference boid
-        referenceBoid.dx += totalRule2Move.dx; referenceBoid.dy += totalRule2Move.dy;
-        referenceBoid.dx += totalRule3Move.dx; referenceBoid.dy += totalRule3Move.dy;
-        referenceBoid.dx /= 2; referenceBoid.dy /= 2;
-      }
+      referenceBoid.dx += totalRule1Move.dx;
+      referenceBoid.dy += totalRule1Move.dy;
+      referenceBoid.dx += totalRule2Move.dx; referenceBoid.dy += totalRule2Move.dy;
+      referenceBoid.dx += totalRule3Move.dx; referenceBoid.dy += totalRule3Move.dy;
+      referenceBoid.dx /= 2; referenceBoid.dy /= 2;
 
       const velMagnitude = Math.sqrt(Math.pow(referenceBoid.dx, 2) + Math.pow(referenceBoid.dy, 2));
       if (velMagnitude < sim.minVelocityMagnitude) {
