@@ -452,7 +452,7 @@ const BASE_BOID_POINTS = [0., 0., 0., 0.025, 0.04, 0.0125];
       boids: generateRandomBoids(10),
       canvasDimensions: {x: 500, y: 500},
       avoidanceRadius: 0.01,
-      followanceRadius: 0.15,
+      followanceRadius: 0.45,
       maxVelocityMagnitude: 0.04,
       minVelocityMagnitude: 0.01,
       maxAngleChange: Math.PI / 8,
