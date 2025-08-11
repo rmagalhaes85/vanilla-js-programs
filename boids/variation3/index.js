@@ -169,9 +169,8 @@ const BASE_BOID_POINTS = [0., 0., 0., 0.025, 0.04, 0.0125];
 
       const velMagnitude = Math.sqrt(Math.pow(referenceBoid.dx, 2) + Math.pow(referenceBoid.dy, 2));
       if (velMagnitude < sim.minVelocityMagnitude) {
-        const correction = sim.minVelocityMagnitude / velMagnitude;
-        referenceBoid.dx *= correction;
-        referenceBoid.dy *= correction;
+        referenceBoid.dx = sim.minVelocityMagnitude;
+        referenceBoid.dy = sim.minVelocityMagnitude;
       } else if (velMagnitude > sim.maxVelocityMagnitude) {
         const correction = sim.maxVelocityMagnitude / velMagnitude;
         referenceBoid.dx *= correction;
