@@ -27,6 +27,10 @@ const BASE_BOID_POINTS = [0., 0., 0., 0.025, 0.04, 0.0125];
     maxVelocityMagnitude: 0.01,
     minVelocityMagnitude: 0.002,
     maxAngleChange: Math.PI / 16,
+    avoidanceFactor: 0.05,
+    cohesionFactor: 0.05,
+    alignmentFactor: 0.01,
+    marginPx: 50,
   };
 
   // =====================================================================================
@@ -49,8 +53,8 @@ const BASE_BOID_POINTS = [0., 0., 0., 0.025, 0.04, 0.0125];
     return {
       applied: 1,
       move: {
-        dx: referenceBoid.x - otherBoid.x,
-        dy: referenceBoid.y - otherBoid.y,
+        dx: (referenceBoid.x - otherBoid.x) * sim.avoidanceFactor,
+        dy: (referenceBoid.y - otherBoid.y) * sim.avoidanceFactor,
       },
     };
   }
@@ -59,7 +63,13 @@ const BASE_BOID_POINTS = [0., 0., 0., 0.025, 0.04, 0.0125];
   function rule2(sim, distance, referenceBoid, otherBoid) {
     if (distance > sim.followanceRadius)
       return {applied: 0, move: {dx: 0, dy: 0}};
-    return {applied: 1, move: {dx: otherBoid.dx, dy: otherBoid.dy}};
+    return {
+      applied: 1,
+      move: {
+        dx: otherBoid.dx * sim.alignmentFactor,
+        dy: otherBoid.dy * sim.alignmentFactor,
+      }
+    };
   }
 
   // RULE 3: COHESION
@@ -69,8 +79,8 @@ const BASE_BOID_POINTS = [0., 0., 0., 0.025, 0.04, 0.0125];
     return {
       applied: 1,
       move: {
-        dx: otherBoid.x - referenceBoid.x,
-        dy: otherBoid.y - referenceBoid.y,
+        dx: (otherBoid.x - referenceBoid.x) * sim.cohesionFactor,
+        dy: (otherBoid.y - referenceBoid.y) * sim.cohesionFactor,
       },
     };
   }
@@ -399,6 +409,10 @@ const BASE_BOID_POINTS = [0., 0., 0., 0.025, 0.04, 0.0125];
       maxVelocityMagnitude: 0.04,
       minVelocityMagnitude: 0.01,
       maxAngleChange: Math.PI / 8,
+      avoidanceFactor: 0.05,
+      cohesionFactor: 0.8,
+      alignmentFactor: 0.0,
+      marginPx: 50,
     };
     const canvas = document.getElementById("boidsCanvas");
     const ctx = canvas.getContext("2d");
