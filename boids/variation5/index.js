@@ -148,6 +148,10 @@ function planMovements(sim) {
         totalRule2Move.dx /= totalRule2Applied; totalRule2Move.dy /= totalRule2Applied;
       }
       if (totalRule3Applied) {
+        // taking in consideration the position of the reference boid, since its position
+        // also accounts for the collection's center of mass
+        totalRule3Move.dx += referenceBoid.dx; totalRule3Move.dy += referenceBoid.dy;
+        totalRule3Applied += 1;
         totalRule3Move.dx /= totalRule3Applied; totalRule3Move.dy /= totalRule3Applied;
       }
 
