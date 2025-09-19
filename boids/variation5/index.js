@@ -305,7 +305,7 @@ function animateSimulation(sim, canvas, ctx) {
   drawSimulation(sim, canvas, ctx);
   window.setTimeout(() => {
     window.requestAnimationFrame(() => animateSimulation(sim, canvas, ctx));
-  }, 1000/30);
+  }, 10);
 }
 
 function radToDeg(angRad) {
@@ -328,10 +328,26 @@ function generateRandomBoids(count, speed, canvasW, canvasH) {
   return boids;
 }
 
+function generateDistributedBoids(count, speed, canvasW, canvasH) {
+  if (!count) throw new Error('Count must be greater than 0');
+  let boids = new Array(count);
+  const sectionW = canvasW / count;
+  const sectionH = canvasH / count;
+  for (let i = 0; i < count; i++) {
+    boids[i] = {
+      x: sectionW * (i + 1) / 2,
+      y: sectionH * (i + 1) / 2,
+      dx: 0,
+      dy: 0,
+    };
+  }
+  return boids;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const canvas = document.getElementById("boidsCanvas");
   const sim = {
-    boids: generateRandomBoids(20, 10, canvas.width, canvas.height),
+    boids: generateDistributedBoids(10, 0, canvas.width, canvas.height),
     canvasDimensions: {w: canvas.width, h: canvas.height},
     avoidanceRadius: 40,
     followanceRadius: 400,
