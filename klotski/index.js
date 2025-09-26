@@ -23,6 +23,9 @@ class KlotskiModel {
   }
 
   selectPiece(pieceId) {
+    if (this.possiblePieces.indexOf(pieceId) === -1) return;
+    this.selectedPiece = pieceId;
+    this.notifyListeners();
   }
 
   getPosition(piece, state) {
@@ -30,7 +33,7 @@ class KlotskiModel {
     const board_h = 5;
     for (let i = 0; i < board_h; i++)
       for (let j = 0; j < board_w; j++)
-        if (state[i][j] === piece) return { x: j, y: i };
+        if (this.state[i][j] === piece) return { x: j, y: i };
     throw new Error(`Piece not found in state: ${piece}`);
   }
 
@@ -43,7 +46,7 @@ class KlotskiModel {
     throw new Error(`Unknown piece kind: ${kind}`);
   }
 
-  canMove(piece, direction, state) {
+  canMove(piece, direction) {
     const kind = piece[0];
     const { x, y } = this.getPosition(piece, this.state);
     const { w: pw, h: ph } = this.getDimensions(kind);
@@ -84,6 +87,39 @@ class KlotskiModel {
   }
 
   movePiece(pieceId, direction) {
+    if (!this.canMove(pieceId, direction)) return;
+    // piece movement logic
+    const { x: curx, y: cury } = this.getPosition(pieceId);
+    const kind = pieceId[0];
+    const { w: pw, h: ph } = this.getDimensions(kind);
+    for (let x = curx; x < (curx + pw); x++)
+      for (let y = cury; y < (cury + ph); y++) {
+        if (this.state[y][x] !== pieceId) {
+          const found = this.state[y][x];
+          throw new Error(`Encountered a piece other than ${pieceId} at pos x=${x}, y=${y}: ${found}`);
+        }
+        this.state[y][x] = " ";
+      }
+
+    let newx = curx, newy = cury;
+    if (direction === "n") { newy--; }
+    else if (direction === "e") { newx++; }
+    else if (direction === "s") { newy++; }
+    else if (direction === "w") { newx--; }
+    else { throw new Error(`Invalid direction: ${direction}`); }
+
+    for (let x = newx; x < (newx + pw); x++)
+      for (let y = newy; y < (newy + ph); y++) {
+        if (this.state[y][x] !== " ") {
+          throw new Error(`Expected an empty place at pos x=${x}, y=${y}`);
+        }
+        this.state[y][x] = pieceId;
+      }
+    this.notifyListeners();
+  }
+
+  moveSelectedPiece(direction) {
+    this.movePiece(this.selectedPiece, direction);
   }
 
   notifyListeners() {
@@ -98,6 +134,10 @@ class KlotskiModel {
 }
 
 class KlotskiController {
+  constructor(model) {
+    this.model = model;
+  }
+
   selectNextMovablePiece() {
     this.model.selectNextMovablePiece();
   }
@@ -111,10 +151,32 @@ class KlotskiController {
     this.model.movePiece(pieceId, direction);
   }
 
+  moveSelectedPiece(direction) {
+    this.model.moveSelectedPiece(direction);
+  }
+
+  displayBoard() {
+    this.model.notifyListeners();
+  }
+
   handleViewPortClick(eventData) {
   }
 
   handleKeyboardEvent(eventData) {
+    if (eventData.code === "Space" || eventData.code === "Tab") {
+      this.selectNextMovablePiece();
+    } else if (["ArrowUp", "ArrowRight", "ArrowDown", "ArrowLeft"].indexOf(eventData.code) > -1) {
+      const directionsMap = {
+        "ArrowUp": "n",
+        "ArrowRight": "e",
+        "ArrowDown": "s",
+        "ArrowLeft": "w"
+      };
+      this.moveSelectedPiece(directionsMap[eventData.code]);
+    } else {
+      return;
+    }
+    eventData.preventDefault();
   }
 }
 
@@ -211,16 +273,18 @@ function game() {
   const canvas = document.getElementById('gamecanvas');
   const model = new KlotskiModel();
   const viewPort = new KlotskiViewPort(canvas);
-  const controller = new KlotskiController();
+  const controller = new KlotskiController(model);
 
   model.addEventListener('modelchange', function(eventData) { viewPort.handleModelChange(eventData); });
   viewPort.addEventListener('click', function(eventData) { controller.handleViewPortClick(eventData); });
-  window.addEventListener('keypress', function(eventData) { controller.handleKeyboardEvent(eventData); });
+  window.addEventListener('keydown', function(eventData) { controller.handleKeyboardEvent(eventData); });
 
   // for purposes of debugging via dev tools
   window.model = model;
   window.viewPort = viewPort;
   window.controller = controller;
+
+  controller.displayBoard();
 }
 
 game();
