@@ -28,7 +28,7 @@ class KlotskiModel {
     this.notifyListeners();
   }
 
-  getPosition(piece, state) {
+  getPosition(piece) {
     const board_w = 4;
     const board_h = 5;
     for (let i = 0; i < board_h; i++)
@@ -48,7 +48,7 @@ class KlotskiModel {
 
   canMove(piece, direction) {
     const kind = piece[0];
-    const { x, y } = this.getPosition(piece, this.state);
+    const { x, y } = this.getPosition(piece);
     const { w: pw, h: ph } = this.getDimensions(kind);
     const bw = 4;
     const bh = 5;
@@ -118,6 +118,35 @@ class KlotskiModel {
     this.notifyListeners();
   }
 
+  processCellClick(boardX, boardY) {
+    const pieceInPosition = this.state[boardY][boardX];
+
+    if (this.possiblePieces.indexOf(pieceInPosition) > -1) {
+      this.selectedPiece = pieceInPosition;
+      this.notifyListeners();
+      return;
+    }
+
+    // in case the clicked cell is empty, let's check if such cell could be the destiny of
+    // the selected piece. In case it is, we move the selected piece towards the clicked
+    // cell
+    const { x: selectedPieceX, y: selectedPieceY } = this.getPosition(this.selectedPiece);
+    const { w: selectedPieceW, h: selectedPieceH } = this.getDimensions(this.selectedPiece[0]);
+
+    if (boardY === (selectedPieceY - 1) && (boardX >= selectedPieceX && boardX < (selectedPieceX + selectedPieceW))) {
+      this.movePiece(this.selectedPiece, 'n');
+    } else if (boardX === (selectedPieceX - 1) && (boardY >= selectedPieceY && boardY < (selectedPieceY + selectedPieceH))) {
+      this.movePiece(this.selectedPiece, 'w');
+    } else if (boardY === (selectedPieceY + selectedPieceH) && (boardX >= selectedPieceX && boardX < (selectedPieceX + selectedPieceW))) {
+      this.movePiece(this.selectedPiece, 's');
+    } else if (boardX === (selectedPieceX + selectedPieceW) && (boardY >= selectedPieceY && boardY < (selectedPieceY + selectedPieceH))) {
+      this.movePiece(this.selectedPiece, 'e');
+    } else {
+      throw new Error('Invalid movement requested');
+    }
+
+  }
+
   moveSelectedPiece(direction) {
     this.movePiece(this.selectedPiece, direction);
   }
@@ -160,6 +189,8 @@ class KlotskiController {
   }
 
   handleViewPortClick(eventData) {
+    const {boardX, boardY} = eventData;
+    this.model.processCellClick(boardX, boardY);
   }
 
   handleKeyboardEvent(eventData) {
@@ -181,11 +212,38 @@ class KlotskiController {
 }
 
 class KlotskiViewPort {
+  //pieceCoordinates = [];
+  eventListeners = [];
+  cellsW = 4;
+  cellsH = 5;
+
   constructor(canvas) {
     this.canvas = canvas;
+    this.canvas.addEventListener('click', this.handleCanvasClick.bind(this));
+  }
+
+  handleCanvasClick(eventData) {
+    const rect = this.canvas.getBoundingClientRect();
+    const x = eventData.clientX - rect.left;
+    const y = eventData.clientY - rect.top;
+    const canvasH = this.canvas.height;
+    const canvasW = this.canvas.width;
+    const boardX = Math.trunc((x - 1) / (canvasW / this.cellsW));
+    const boardY = Math.trunc((y - 1) / (canvasH / this.cellsH));
+    eventData.boardX = boardX;
+    eventData.boardY = boardY;
+    this.notifyListeners(eventData);
   }
 
   addEventListener(eventName, handlerFn) {
+    this.eventListeners.push(handlerFn);
+  }
+
+  notifyListeners(eventData) {
+    //console.log({eventData});
+    for (const f of this.eventListeners) {
+      f(eventData);
+    }
   }
 
   handleModelChange(eventData) {
