@@ -1,0 +1,109 @@
+<html>
+  <head><title>Fireworks 1</title></head>
+  <body>
+    <h1 id="h1Title">Fireworks 1</h1>
+    <div><label><input type="checkbox" id="chkRecord" value="1" />Record Video</label></div>
+    <div><button id="btnStart">Start</button></div>
+    <canvas id="cnv1" width="1000" height="800" style="border: 1px solid black;" />
+      <script>
+const cnv1 = document.getElementById('cnv1');
+const chkRecord = document.getElementById('chkRecord');
+const btnStart = document.getElementById('btnStart');
+const stream = cnv1.captureStream(15);
+const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+const chunks = [];
+const ctx = cnv1.getContext('2d');
+const h = cnv1.height;
+const w = cnv1.width;
+const ppi = 96; // pixels per inch
+const avg_particle_speed = 1; // inches per second
+const frame_rate = 15;
+const refresh_interval = 1000 / frame_rate; // milliseconds
+const avg_displacement_per_ms = ppi * avg_particle_speed; // pixels per millisecond
+const avg_displacement_per_frame = avg_displacement_per_ms / frame_rate; // in pixels
+const displacement_per_frame_sd = 2; // displacement per frame standard deviation
+const cnv_origin_x = w / 2;
+const cnv_origin_y = h / 2;
+const particle_size = 4;
+const colors = ["#ff0000", "#00ff00", "#0000ff"];
+let particles = [];
+let last_timestamp;
+let start_time;
+const qty_particles = 100;
+const duration_ms = 5000;
+
+btnStart.onclick = function(e) {
+  particles = [];
+  for (let i = 0; i < qty_particles; ++i)
+    addRandomParticle(particles);
+  ctx.fillStyle = "#000000";
+  ctx.fillRect(0, 0, w, h);
+  ctx.translate(cnv_origin_x, cnv_origin_y);
+  last_timestamp = undefined;
+  start_time = undefined;
+  if (chkRecord.checked)
+    recorder.start();
+  requestAnimationFrame(animate);
+};
+
+recorder.ondataavailable = function(e) {
+  if (e.data.size > 0)
+    chunks.push(e.data);
+};
+
+recorder.onstop = function(e) {
+  const blob = new Blob(chunks, { type: 'video/webm' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = "canvas-animation.webm";
+  a.click();
+};
+
+function drawParticle(ctx, x, y, color="#ffff00") {
+  ctx.fillStyle = color;
+  ctx.fillRect(x - particle_size / 2, y - particle_size / 2, particle_size, particle_size);
+}
+
+function addRandomParticle(list) {
+  const color = colors[Math.floor(Math.random() * 3)];
+  const speed = avg_displacement_per_frame + ((Math.random() * 2 - 1) * displacement_per_frame_sd);
+  const direction_rad = 2 * Math.PI * Math.random();
+  const px = 0, py = 0;
+  list.push({ color, speed, direction_rad, px, py });
+}
+
+function animate(timestamp) {
+  if (typeof(last_timestamp) === "undefined") { last_timestamp = timestamp; }
+  if (typeof(start_time) === "undefined") start_time = timestamp;
+  const elapsed = timestamp - last_timestamp;
+  if (elapsed >= refresh_interval) {
+    //console.log(`timestamp=${timestamp}`);
+    //console.log(`last_timestamp=${last_timestamp}`);
+    //console.log(`elapsed=${elapsed}`);
+    moveParticles(ctx, particles);
+    last_timestamp = timestamp;
+  }
+  if ((timestamp - start_time) < duration_ms) {
+    requestAnimationFrame(animate);
+  } else if (recorder.state !== "inactive") {
+    recorder.stop();
+  }
+}
+
+function moveParticles(ctx, list) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = "#000000";
+  ctx.fillRect(0, 0, w, h);
+  ctx.translate(cnv_origin_x, cnv_origin_y);
+  for (let i = 0; i < list.length; ++i) {
+    let p = list[i];
+    drawParticle(ctx, p.px, p.py, p.color);
+    p.px += p.speed * Math.cos(p.direction_rad);
+    p.py += p.speed * Math.sin(p.direction_rad);
+  }
+}
+      </script>
+  </body>
+</html>
+
